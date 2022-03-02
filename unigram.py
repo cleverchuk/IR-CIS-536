@@ -1,10 +1,12 @@
-from collections import defaultdict
+from collections import OrderedDict, defaultdict
 import pprint
 import string
 from typing import Counter, List
 from nltk.stem import PorterStemmer
 from nltk.tokenize import word_tokenize
+import re
 
+REGEX = re.compile("(<\w+>)|<\w+/>")
 
 class WikiDoc:
     def __init__(self, url, content) -> None:
@@ -57,7 +59,7 @@ class WikiDocProcessor:
 
 class WikiCorpusProcessor:
     def __init__(self, wiki_doc_processors: List[WikiDocProcessor]) -> None:
-        self._dictionary: dict = {}
+        self._dictionary: OrderedDict = OrderedDict()
         self._term_freq: dict = {}
 
         self._doc_freq: defaultdict = defaultdict(int)
@@ -99,7 +101,7 @@ class Parser:
         url = tokens[0]
         content = " ".join(tokens[1:])
 
-        wiki_doc = WikiDoc(url, content)        
+        wiki_doc = WikiDoc(url, REGEX.sub("", content))        
         return wiki_doc
 
 
@@ -114,22 +116,33 @@ class FileReader:
                     break
 
 
+class FileWriter:
+    def write(self, content: List[str], path: str):
+        with open(path, 'w') as fp:
+            fp.writelines(content)
+
+
 class Driver:
     def run(self, file_path):
         fr = FileReader()
+        fw = FileWriter()
         parser = Parser()
-        processors = []
 
+        processors = []
         for line in fr.read_lines(file_path):
             wiki_doc = parser.parse(line)
             processors.append(WikiDocProcessor(wiki_doc))
         
         corpus_processor = WikiCorpusProcessor(processors)
         corpus_processor.process(PorterStemmer())
+        fw.write(corpus_processor.dictionary.keys(), "dictionary.txt")
 
-        pprint.pprint(corpus_processor.dictionary)
-        pprint.pprint(corpus_processor.term_freq)
-        pprint.pprint(corpus_processor.doc_freq)
+        unigram  = []
+        for word, code in corpus_processor.dictionary.items():
+            line = f"{code} {word} {corpus_processor.term_freq[word]} {corpus_processor.doc_freq[word]}"
+            unigram.append(line)
+
+        fw.write(unigram, "unigrams.txt")
 
 
 if __name__ == "__main__":
