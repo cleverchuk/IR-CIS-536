@@ -1,18 +1,19 @@
 from collections import OrderedDict, defaultdict
-import pprint
 import string
 from typing import Counter, List, Union
 from nltk.stem import PorterStemmer, WordNetLemmatizer
 from nltk.tokenize import word_tokenize
 import re
 
-REGEX = re.compile(r"(<\w+>|<\w+/>|\w+:[/a-zA-Z0-9-.#]*)")
+REGEX = re.compile(r"(<\w+>|<\w+/>|\w+:[/a-zA-Z0-9-.#]*)") # regex for removing url and html tags
+WORD_REGEX = re.compile(r"([`'/.,])([a-zA-Z0-9]+)") # regex for removing prefixes of the first group
 
 
 class WikiDoc:
     """
         Data structure representing Wikipedia document
     """
+
     def __init__(self, url, content) -> None:
         self._content = content
         self._url = url
@@ -33,6 +34,7 @@ class WikiDocProcessor:
     """
         A class that process a single WikiDoc computing it's term frequency
     """
+
     def __init__(self, wiki_doc: WikiDoc) -> None:
         self._wiki_doc: WikiDoc = wiki_doc
         self._term_freq: dict = {}
@@ -57,7 +59,7 @@ class WikiDocProcessor:
             stems the token in WikiDoc and compute term frequency
         """
         for word in self.__words:
-            if word not in string.punctuation: # ignore punctuation during stemming
+            if word not in string.punctuation:  # ignore punctuation during stemming
                 stem = stemmer.stem(word)
                 self._tokens.append(stem)
 
@@ -71,6 +73,7 @@ class WikiCorpusProcessor:
     """
         A class that computes the dictionary, global term freqency and document frequency for the corpus
     """
+
     def __init__(self, wiki_doc_processors: List[WikiDocProcessor]) -> None:
         self._tokens: list = []
         self._term_freq: dict = {}
@@ -95,29 +98,31 @@ class WikiCorpusProcessor:
         """
             computes the dictionary, global term freqency and document frequency for the corpus
         """
-        for processor in self._processors: # invoke each WikiDocProcessor to process their doc
+        for processor in self._processors:  # invoke each WikiDocProcessor to process their doc
             processor.process(stemmer)
-            self._tokens += processor.tokens # update corpus tokens
+            self._tokens += processor.tokens  # update corpus tokens
 
-        self._term_freq = Counter(self._tokens) # compute global term frequency
+        # compute global term frequency
+        self._term_freq = Counter(self._tokens)
         for token in self._term_freq.keys():
             for processor in self._processors:
                 if token in processor.term_freq:
-                    self._doc_freq[token] += 1 # compute doc freqency
+                    self._doc_freq[token] += 1  # compute doc freqency
 
         words = sorted(self._term_freq.keys())
         for code, token in enumerate(words):
-            self._dictionary[token] = code # compute the dictionary
+            self._dictionary[token] = code  # compute the dictionary
 
 
 class Lexer:
     """
         A Lexer for the corpus
     """
+
     def lex(self, doc_text: str) -> WikiDoc:
         tokens = doc_text.split(' ')
         url = tokens[0]
-        content = " ".join(tokens[1:])
+        content = " ".join([WORD_REGEX.sub(r"\2", tok) for tok in tokens[1:]])
 
         content = REGEX.sub("", content)
         content = word_tokenize(content)
@@ -130,6 +135,7 @@ class FileReader:
     """
         Convenience class for efficiently reading files
     """
+
     def read_lines(self, path: str, n=-1):
         """
             read n lines if n > -1 otherwise reads the whole file
@@ -148,6 +154,7 @@ class FileWriter:
     """
         Convenience class for writing to file
     """
+
     def write(self, content: List[str], path: str):
         with open(path, 'wb') as fp:
             for line in content:
@@ -159,6 +166,7 @@ class StemmerLemma:
     """
         A wrapper for either a Stemmer or a Lemmatizer
     """
+
     def __init__(self, target: Union[PorterStemmer, WordNetLemmatizer] = PorterStemmer()) -> None:
         self.target = target
 
@@ -170,10 +178,12 @@ class StemmerLemma:
         else:
             self.target.stem(word)
 
+
 class Stemmer:
     """
         A class that applies stemming after lemmatizing
     """
+
     def __init__(self, lemma: WordNetLemmatizer = WordNetLemmatizer()) -> None:
         self.lemma = lemma
         self.stemmer = PorterStemmer()
@@ -186,6 +196,7 @@ class Lemma:
     """
         A class that applies lemmatizing after stemming
     """
+
     def __init__(self, stemmer: PorterStemmer = PorterStemmer()) -> None:
         self.stemmer = stemmer
         self.lemma = WordNetLemmatizer()
@@ -198,13 +209,14 @@ class Driver:
     """
         A driver class for putting it all together
     """
+
     def run(self, file_path):
         fr = FileReader()
         fw = FileWriter()
         lexer = Lexer()
 
         processors = []
-        for line in fr.read_lines(file_path, 1500):
+        for line in fr.read_lines(file_path):
             wiki_doc = lexer.lex(line)
             processors.append(WikiDocProcessor(wiki_doc))
 
