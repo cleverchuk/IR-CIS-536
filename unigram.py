@@ -6,8 +6,7 @@ from nltk.tokenize import word_tokenize
 import re
 
 REGEX = re.compile(r"(<\w+>|<\w+/>|\w+:[/a-zA-Z0-9-.#]*)") # regex for removing url and html tags
-WORD_REGEX = re.compile(r"([`'/.,])([a-zA-Z0-9]+)") # regex for removing prefixes of the first group
-
+WORD_REGEX = re.compile(r"([`'/.,])(\w+)") # regex for removing prefixes of the first group
 
 class WikiDoc:
     """
@@ -122,10 +121,10 @@ class Lexer:
     def lex(self, doc_text: str) -> WikiDoc:
         tokens = doc_text.split(' ')
         url = tokens[0]
-        content = " ".join([WORD_REGEX.sub(r"\2", tok) for tok in tokens[1:]])
+        content = " ".join(tokens[1:])
 
         content = REGEX.sub("", content)
-        content = word_tokenize(content)
+        content = [WORD_REGEX.sub(r"\2", token) for token in  word_tokenize(content)]
         wiki_doc = WikiDoc(url, content)
 
         return wiki_doc
