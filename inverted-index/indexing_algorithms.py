@@ -1,12 +1,10 @@
 from collections import defaultdict, deque
 import os
-from signal import raise_signal
 from typing import IO
-from black import out
-
-from numpy import block, byte
+import pickle
 
 from preprocessing import Document, Lexer
+
 
 class Codec:
     def __init__(self, size) -> None:
@@ -22,8 +20,9 @@ class Codec:
     def posting_size(self):
         return self._size
 
+
 class BinaryCodec(Codec):
-    def __init__(self, size = 12) -> None:
+    def __init__(self, size=12) -> None:
         super().__init__(size)
 
     def encode(self, posting: list[int]) -> bytes:
@@ -33,24 +32,25 @@ class BinaryCodec(Codec):
             + posting[2].to_bytes(4, byteorder="little")
         )
 
-
     def decode(self, bytes_: bytes, posting_size=12, _bytes_=4) -> list:
         if bytes_:
             posting = []
             for i in range(0, posting_size, _bytes_):
-                posting.append(int.from_bytes(bytes_[i : i + _bytes_], byteorder="little"))
+                posting.append(
+                    int.from_bytes(bytes_[i : i + _bytes_], byteorder="little")
+                )
 
             return posting
 
         return None
 
+
 class TextCodec(Codec):
-    def __init__(self, size = 20) -> None:
+    def __init__(self, size=20) -> None:
         super().__init__(size)
 
     def encode(self, posting: list[int]) -> bytes:
         return f"{posting[0]} {posting[1]} {posting[2]}\n".encode("utf-8")
-
 
     def decode(self, bytes_: bytes) -> list:
         if bytes_:
@@ -59,9 +59,10 @@ class TextCodec(Codec):
 
         return None
 
+
 class FileReader:
     """
-        Convenience class for efficiently reading files
+    Convenience class for efficiently reading files
     """
 
     @staticmethod
@@ -80,10 +81,11 @@ class FileReader:
 
     @staticmethod
     def read_bytes(file: IO[bytes], codec: BinaryCodec | TextCodec) -> bytes:
-        if  isinstance(codec, BinaryCodec):
+        if isinstance(codec, BinaryCodec):
             return file.read(codec.posting_size)
-        
+
         return file.readline()
+
 
 class Algorithm:
     def __init__(self, posting_codec: Codec) -> None:
@@ -106,12 +108,13 @@ class Algorithm:
 
 class BSBI(Algorithm):
     """
-        posting_file structure(bin): |term_id(4)|doc_id(4)|term_freq(4)|
+    posting_file structure(bin): |term_id(4)|doc_id(4)|term_freq(4)|
     """
 
     def __init__(self, posting_codec: Codec = BinaryCodec()) -> None:
         super().__init__(posting_codec)
         self.lexicon: dict = defaultdict(lambda: (-1, 0, 0))
+        self.term_lexicon: dict = {}
         self.terms: int = 0
 
         self.postings = 0
@@ -124,8 +127,12 @@ class BSBI(Algorithm):
         out_size: int,
     ) -> int:
 
-        left: list = self.codec.decode(FileReader.read_bytes(posting_file_0, self.codec))
-        right: list = self.codec.decode(FileReader.read_bytes(posting_file_1, self.codec))
+        left: list = self.codec.decode(
+            FileReader.read_bytes(posting_file_0, self.codec)
+        )
+        right: list = self.codec.decode(
+            FileReader.read_bytes(posting_file_1, self.codec)
+        )
         written: int = 0
 
         while left and right and written < out_size:
@@ -148,21 +155,19 @@ class BSBI(Algorithm):
 
                     right = self.codec.decode(bytes_)
                     written += self.codec.posting_size
-            
+
             if not right and written < out_size:
                 while left and written < out_size:
                     out_posting_file.write(self.codec.encode(left))
                     bytes_ = FileReader.read_bytes(posting_file_0, self.codec)
                     left = self.codec.decode(bytes_)
-                    
-                    written += self.codec.posting_size
-                          
 
+                    written += self.codec.posting_size
 
         return written
 
     def merge(self, posting_filenames: deque[tuple], out_size: int = 1048576):
-        merged: int = 0        
+        merged: int = 0
 
         while len(posting_filenames) > 1:
             out_filename: str = f"out_file_{merged}.bin"
@@ -198,6 +203,41 @@ class BSBI(Algorithm):
             file_1.close()
             out_file.close()
 
+        index_filename, _ = posting_filenames.popleft()
+        self.add_offset(index_filename)
+
+    def add_offset(self, filename: str):
+        with open(filename, "rb") as fp:
+            offset = 0
+            prev_id = -1
+            while True:
+                bytes_: bytes = FileReader.read_bytes(fp, self.codec)
+                if not bytes_:
+                    break
+
+                term_id, *_ = self.codec.decode(bytes_)
+                if prev_id != term_id:
+                    term_id, doc_freq, global_term_freq = self.lexicon[
+                        self.term_lexicon[term_id]
+                    ]
+                    self.lexicon[self.term_lexicon[term_id]] = (
+                        term_id,
+                        doc_freq,
+                        global_term_freq,
+                        offset,
+                    )
+
+                prev_id = term_id
+                offset += len(bytes_)
+
+    def dump_lexicon(self, filename: str = "lexicon.bin"):
+        with open(filename, "wb") as fp:
+            pickle.dump(dict(self.lexicon), fp)
+
+    def load_lexicon(self, filename: str = "lexicon.bin"):
+        with open(filename, "rb") as fp:
+            self.lexicon = defaultdict(lambda: (-1, 0, 0), pickle.load(fp))
+
     def index(self, docs: list[Document]) -> str:
         posting = defaultdict(int)
         for doc in docs:
@@ -205,6 +245,7 @@ class BSBI(Algorithm):
                 term_id, doc_freq, global_term_freq = self.lexicon[term]
                 if term_id == -1:
                     term_id = self.terms
+                    self.term_lexicon[term_id] = term
                     self.terms += 1
 
                 posting_key = (term_id, doc.id)
@@ -257,6 +298,11 @@ class Driver:
             posting_filenames.appendleft((bsbi.index(block), 0))
 
         bsbi.merge(posting_filenames)
+        print(bsbi.lexicon)
+        print("\n===============================================\n")
+        bsbi.dump_lexicon()
+        bsbi.load_lexicon()
+        print(bsbi.lexicon)
 
 
 if __name__ == "__main__":
