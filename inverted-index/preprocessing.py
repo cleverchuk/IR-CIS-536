@@ -32,7 +32,7 @@ class Document:
         return self._url
 
     def __repr__(self) -> str:
-        return f"{self.url}: {self.content[:10]}"
+        return f"{self.id} {self.url}: {self.content[:10]}"
 
 
 class Lexer:

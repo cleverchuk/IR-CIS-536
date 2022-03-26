@@ -44,7 +44,6 @@ class BinaryCodec(Codec):
 
         return None
 
-
 class TextCodec(Codec):
     def __init__(self, size = 20) -> None:
         super().__init__(size)
@@ -59,7 +58,6 @@ class TextCodec(Codec):
             return list(map(int, decoded.split()))
 
         return None
-
 
 class FileReader:
     """
@@ -87,7 +85,6 @@ class FileReader:
         
         return file.readline()
 
-
 class Algorithm:
     def __init__(self, posting_codec: Codec) -> None:
         self._codec = posting_codec
@@ -101,9 +98,7 @@ class Algorithm:
 
     def merge(
         self,
-        posting_file_0: IO[bytes],
-        posting_file_1: IO[bytes],
-        out_posting_file: IO[bytes],
+        posting_filenames: deque[tuple],
         out_size: int = 409600,
     ) -> int:
         raise NotImplementedError
@@ -111,7 +106,7 @@ class Algorithm:
 
 class BSBI(Algorithm):
     """
-    posting_file structure: |term_id(4)|doc_id(4)|term_freq(4)|
+        posting_file structure(bin): |term_id(4)|doc_id(4)|term_freq(4)|
     """
 
     def __init__(self, posting_codec: Codec = BinaryCodec()) -> None:
@@ -121,7 +116,7 @@ class BSBI(Algorithm):
 
         self.postings = 0
 
-    def merge(
+    def ___merge(
         self,
         posting_file_0: IO[bytes],
         posting_file_1: IO[bytes],
@@ -165,6 +160,43 @@ class BSBI(Algorithm):
 
 
         return written
+
+    def merge(self, posting_filenames: deque[tuple], out_size: int = 1048576):
+        merged: int = 0        
+
+        while len(posting_filenames) > 1:
+            out_filename: str = f"out_file_{merged}.bin"
+            merged += 1
+
+            out_file: IO[bytes] = open(out_filename, "wb")
+
+            filename_0, pos_0 = posting_filenames.popleft()
+            filename_1, pos_1 = posting_filenames.popleft()
+
+            file_0: IO[bytes] = open(filename_0, "rb")
+            file_0.seek(0, os.SEEK_END)
+
+            size_0: int = file_0.tell()
+            file_0.seek(pos_0)
+
+            file_1: IO[bytes] = open(filename_1, "rb")
+            file_1.seek(0, os.SEEK_END)
+
+            size_1: int = file_1.tell()
+            file_1.seek(pos_1)
+            self.___merge(file_0, file_1, out_file, out_size)
+
+            if file_0.tell() < size_0:
+                posting_filenames.appendleft((filename_0, file_0.tell()))
+
+            if file_1.tell() < size_1:
+                posting_filenames.appendleft((filename_1, file_1.tell()))
+
+            posting_filenames.append((out_filename, 0))
+
+            file_0.close()
+            file_1.close()
+            out_file.close()
 
     def index(self, docs: list[Document]) -> str:
         posting = defaultdict(int)
@@ -224,45 +256,7 @@ class Driver:
 
             posting_filenames.appendleft((bsbi.index(block), 0))
 
-        self.merge(bsbi, posting_filenames)
-
-    def merge(self, algo: Algorithm, posting_filenames: deque[tuple]):
-        merged = 0
-        out_size = 1048576
-
-        while len(posting_filenames) > 1:
-            out_filename = f"out_file_{merged}.bin"
-            merged += 1
-
-            out_file = open(out_filename, "wb")
-
-            filename_0, pos_0 = posting_filenames.popleft()
-            filename_1, pos_1 = posting_filenames.popleft()
-
-            file_0 = open(filename_0, "rb")
-            file_0.seek(0, os.SEEK_END)
-
-            size_0 = file_0.tell()
-            file_0.seek(pos_0)
-
-            file_1 = open(filename_1, "rb")
-            file_1.seek(0, os.SEEK_END)
-
-            size_1 = file_1.tell()
-            file_1.seek(pos_1)
-            algo.merge(file_0, file_1, out_file, out_size)
-
-            if file_0.tell() < size_0:
-                posting_filenames.appendleft((filename_0, file_0.tell()))
-
-            if file_1.tell() < size_1:
-                posting_filenames.appendleft((filename_1, file_1.tell()))
-
-            posting_filenames.append((out_filename, 0))
-            
-            file_0.close()
-            file_1.close()
-            out_file.close()
+        bsbi.merge(posting_filenames)
 
 
 if __name__ == "__main__":

@@ -4,3 +4,4 @@ unigram-model/
 */__pycache__
 */.vscode
 .vscode
+*.bin
