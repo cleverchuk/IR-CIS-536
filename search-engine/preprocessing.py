@@ -40,27 +40,35 @@ class Lexer:
         A Lexer for the corpus
     """
     def __init__(self) -> None:
-        self.stemmer = PorterStemmer()
+        self.stemmer: PorterStemmer = PorterStemmer()
+        self.doc_stats: dict = {}
 
-    def word_tokenize(self, string):
-        string = string.lower()
-        return TOKENIZER.findall(string)
+    def update_stats(self, id: int, content: str) -> None:
+        self.doc_stats[id] = len(content)
+
+    def word_tokenize(self, content: str) -> list[str]:
+        content_ = content.lower()
+        content_ = REGEX.sub("", content_)
+        content_ = [WORD_REGEX.sub(r"\2", token) for token in  TOKENIZER.findall(content_)]
+
+        return content_
+
+    def stem(self, tokens) -> None:
+        for idx, word in enumerate(tokens):
+            if word not in string.punctuation:  # ignore punctuation during stemming
+                tokens[idx] = self.stemmer.stem(word)
+
+            else:
+                tokens[idx] = word
 
     def lex(self, doc_text: str) -> Document:
         match = URL.search(doc_text)
         url = match.group()
+        id: int = int(DOC_ID.findall(url)[0])
+
         content = doc_text[match.end():]
-
-        content = REGEX.sub("", content)
-        content = [WORD_REGEX.sub(r"\2", token) for token in  self.word_tokenize(content)]
+        self.update_stats(id, content)
+        content = self.word_tokenize(content)
         
-        for idx, word in enumerate(content):
-            if word not in string.punctuation:  # ignore punctuation during stemming
-                content[idx] = self.stemmer.stem(word)
-
-            else:
-                content[idx] = word
-
-        id = int(DOC_ID.findall(url)[0])
-        wiki_doc = Document(id, url, content)
-        return wiki_doc
+        self.stem(content)       
+        return Document(id, url, content)

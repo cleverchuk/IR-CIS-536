@@ -1,6 +1,8 @@
 from collections import defaultdict, deque
 import os
-from typing import IO
+from re import L
+from statistics import mean
+from typing import IO, Any
 import pickle
 
 from preprocessing import Document, Lexer
@@ -59,7 +61,6 @@ class TextCodec(Codec):
 
         return None
 
-
 class FileReader:
     """
     Convenience class for efficiently reading files
@@ -86,6 +87,17 @@ class FileReader:
 
         return file.readline()
 
+class FilePickler:
+
+    @staticmethod
+    def dump(data: Any, filename: str) -> None:
+        with open(filename, "wb") as fp:
+            pickle.dump(data, fp)
+
+    @staticmethod
+    def load(filename: str) -> Any:
+        with open(filename, "rb") as fp:
+            return pickle.load(fp)
 
 class Algorithm:
     def __init__(self, posting_codec: Codec) -> None:
@@ -113,7 +125,7 @@ class BSBI(Algorithm):
 
     def __init__(self, posting_codec: Codec = BinaryCodec()) -> None:
         super().__init__(posting_codec)
-        self.lexicon: dict = defaultdict(lambda: (-1, 0, 0))
+        self.lexicon: dict = defaultdict(lambda: (-1, 0))
         self.term_lexicon: dict = {}
         self.terms: int = 0
 
@@ -166,7 +178,7 @@ class BSBI(Algorithm):
 
         return written
 
-    def merge(self, posting_filenames: deque[tuple], out_size: int = 1048576):
+    def merge(self, posting_filenames: deque[tuple], out_size: int = 1048576) -> str:
         merged: int = 0
 
         while len(posting_filenames) > 1:
@@ -205,6 +217,7 @@ class BSBI(Algorithm):
 
         index_filename, _ = posting_filenames.popleft()
         self.add_offset(index_filename)
+        return index_filename
 
     def add_offset(self, filename: str):
         with open(filename, "rb") as fp:
@@ -217,32 +230,23 @@ class BSBI(Algorithm):
 
                 term_id, *_ = self.codec.decode(bytes_)
                 if prev_id != term_id:
-                    term_id, doc_freq, global_term_freq = self.lexicon[
+                    term_id, doc_freq = self.lexicon[
                         self.term_lexicon[term_id]
                     ]
                     self.lexicon[self.term_lexicon[term_id]] = (
                         term_id,
                         doc_freq,
-                        global_term_freq,
                         offset,
                     )
 
                 prev_id = term_id
                 offset += len(bytes_)
 
-    def dump_lexicon(self, filename: str = "lexicon.bin"):
-        with open(filename, "wb") as fp:
-            pickle.dump(dict(self.lexicon), fp)
-
-    def load_lexicon(self, filename: str = "lexicon.bin"):
-        with open(filename, "rb") as fp:
-            self.lexicon = defaultdict(lambda: (-1, 0, 0), pickle.load(fp))
-
     def index(self, docs: list[Document]) -> str:
         posting = defaultdict(int)
         for doc in docs:
             for term in doc.content:
-                term_id, doc_freq, global_term_freq = self.lexicon[term]
+                term_id, doc_freq = self.lexicon[term]
                 if term_id == -1:
                     term_id = self.terms
                     self.term_lexicon[term_id] = term
@@ -253,7 +257,7 @@ class BSBI(Algorithm):
                     doc_freq += 1
 
                 posting[posting_key] += 1
-                self.lexicon[term] = (term_id, doc_freq, global_term_freq + 1)
+                self.lexicon[term] = (term_id, doc_freq)
 
         postings = sorted([[tid, did, freq] for (tid, did), freq in posting.items()])
         filename = f"posting_{self.postings}.bin"
@@ -278,15 +282,60 @@ class BSBI(Algorithm):
                     break
                 yield self.codec.decode(bytes_)
 
+class Index:
+    def __init__(self, lexicon_path: str, posting_path: str, doc_stats_path: str, codec: Codec ):
+        with open(lexicon_path, "rb") as fp:
+            self.lexicon: dict = defaultdict(lambda: (-1, 0, 0), pickle.load(fp))
 
-class Driver:
+        with open(doc_stats_path, "rb") as fp:
+            self.doc_stats: dict = pickle.load(fp)
+
+        self.posting_file: IO[bytes] = open(posting_path, "rb")
+        self.codec = codec
+        self._avg_dl = None
+
+    def doc_length(self, doc_id: int):
+        return self.doc_stats[doc_id]
+
+    @property
+    def avgdl(self):
+        if self._avg_dl:
+            return self._avg_dl
+        
+        self._avg_dl = mean(self.doc_stats.values())
+        return self._avg_dl
+
+    @property
+    def corpus_size(self):
+        return len(self.doc_stats)
+    
+    def release(self) -> None:
+        self.posting_file.close()
+
+    #FIX: use generators
+    def fetch_docs(self, term: str) -> tuple[list[list[int]], int]:
+        _, doc_freq, offset = self.lexicon[term]
+        postings = []
+
+        self.posting_file.seek(offset)
+        for _ in range(doc_freq):
+            bytes_: bytes = FileReader.read_bytes(self.posting_file, self.codec)
+            postings.append(self.codec.decode(bytes_))
+
+        return (postings, doc_freq)
+
+
+class Indexer:
     """
     A driver class for putting it all together
     """
+    @property
+    def index_filename(self):
+        return self._index_filename
 
     def run(self, file_path):
-        lexer = Lexer()
-        bsbi = BSBI(TextCodec())
+        lexer: Lexer = Lexer()
+        algo: Algorithm = BSBI(TextCodec())
 
         posting_filenames: deque = deque()
         block = []
@@ -295,16 +344,12 @@ class Driver:
             for doc in docs_:
                 block.append(lexer.lex(doc.strip()))
 
-            posting_filenames.appendleft((bsbi.index(block), 0))
+            posting_filenames.appendleft((algo.index(block), 0))
 
-        bsbi.merge(posting_filenames)
-        print(bsbi.lexicon)
-        print("\n===============================================\n")
-        bsbi.dump_lexicon()
-        bsbi.load_lexicon()
-        print(bsbi.lexicon)
-
+        self._index_filename = algo.merge(posting_filenames)
+        FilePickler.dump(dict(algo.lexicon), "lexicon.bin")
+        FilePickler.dump(lexer.doc_stats, "doc_stats.bin")
 
 if __name__ == "__main__":
-    file_path = "inverted-index/tiny_wikipedia.txt"
-    Driver().run(file_path)
+    file_path = "search-engine/tiny_wikipedia.txt"
+    Indexer().run(file_path)
