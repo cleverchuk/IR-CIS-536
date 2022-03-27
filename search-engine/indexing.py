@@ -1,6 +1,5 @@
 from collections import defaultdict, deque
 import os
-from re import L
 from statistics import mean
 from typing import IO, Any
 import pickle
@@ -9,32 +8,74 @@ from preprocessing import Document, Lexer
 
 
 class Codec:
+    """
+    Base class for different codec implementation
+    """
+
     def __init__(self, size) -> None:
         self._size = size
 
     def decode(self, *arg, **kwargs) -> list:
+        """
+        decodes input to a list of posting
+        """
         raise NotImplementedError
 
     def encode(self, *args, **kwargs) -> bytes:
+        """
+        encodes a list of positing to bytes
+        """
         raise NotImplementedError
 
     @property
     def posting_size(self):
+        """
+        @return: int
+        @description: configured posting size
+        """
         return self._size
 
 
 class BinaryCodec(Codec):
+    """
+    Codec implementation for encoding and decoding to bytes
+    """
+
     def __init__(self, size=12) -> None:
         super().__init__(size)
 
     def encode(self, posting: list[int]) -> bytes:
+        """
+        encodes a list of positing to bytes
+
+        @param: posting
+        @desc: a posting list
+
+        @return: bytes
+        @desc: positing list as byte stream
+        """
         return (
             posting[0].to_bytes(4, byteorder="little")
             + posting[1].to_bytes(4, byteorder="little")
             + posting[2].to_bytes(4, byteorder="little")
         )
 
-    def decode(self, bytes_: bytes, posting_size=12, _bytes_=4) -> list:
+    def decode(self, bytes_: bytes, posting_size=12, _bytes_=4) -> list | None:
+        """
+        decodes byte stream to a posting list
+
+        @param: bytes_
+        @desc: byte stream to decode
+
+        @param: posting_size
+        @desc: the size of the posting list in bytes
+
+        @param: _bytes_
+        @desc: the size of each element in the posting list in bytes
+
+        @return: list
+        @desc: a posting list or None
+        """
         if bytes_:
             posting = []
             for i in range(0, posting_size, _bytes_):
@@ -48,13 +89,35 @@ class BinaryCodec(Codec):
 
 
 class TextCodec(Codec):
+    """
+    Codec implementation for encoding and decoding to ASCII
+    """
+
     def __init__(self, size=20) -> None:
         super().__init__(size)
 
     def encode(self, posting: list[int]) -> bytes:
+        """
+        encodes a list of positing to ASCII bytes
+
+        @param: posting
+        @desc: a posting list
+
+        @return: bytes
+        @desc: positing list as ASCII byte stream
+        """
         return f"{posting[0]} {posting[1]} {posting[2]}\n".encode("utf-8")
 
-    def decode(self, bytes_: bytes) -> list:
+    def decode(self, bytes_: bytes) -> list | None:
+        """
+        decodes an ASCII byte stream to a posting list
+
+        @param: bytes_
+        @desc: ASCII byte stream to decode
+
+        @return: list | None
+        @desc: a posting list or None
+        """
         if bytes_:
             decoded = bytes_.decode("utf-8").strip()
             return list(map(int, decoded.split()))
@@ -68,9 +131,18 @@ class FileReader:
     """
 
     @staticmethod
-    def read_docs(path: str, block_size=4096, n=-1):
+    def read_docs(path: str, block_size=4096, n=-1) -> list[str]:
         """
         read n lines if n > -1 otherwise reads the whole file
+
+        @param: path
+        @desc: the file absolute or relative path
+
+        @param: block_size
+        @desc: the number lines to read
+
+        @return: list[str]
+        @desc: generator of list of individual line of the file
         """
         with open(path) as fp:
             while True:
@@ -83,6 +155,18 @@ class FileReader:
 
     @staticmethod
     def read_bytes(file: IO[bytes], codec: BinaryCodec | TextCodec) -> bytes:
+        """
+        reads a block or a line from the given file object
+
+        @param: file
+        @desc: readable file object in the byte mode
+
+        @param: codec
+        @desc: codec implementation
+
+        @return: bytes
+        @desc: byte stream
+        """
         if isinstance(codec, BinaryCodec):
             return file.read(codec.posting_size)
 
@@ -90,43 +174,100 @@ class FileReader:
 
 
 class FilePickler:
+    """
+    Convenience class for reading and writing objects as byte stream to file
+    """
+
     @staticmethod
     def dump(data: Any, filename: str) -> None:
+        """
+        writes object to file
+
+        @param: data
+        @desc: object to write to file
+
+        @param: filename
+        @desc: name of file to write
+        """
         with open(filename, "wb") as fp:
             pickle.dump(data, fp)
 
     @staticmethod
     def load(filename: str) -> Any:
+        """
+        reads object from file
+
+        @param: filename
+        @desc: name of file to read
+
+        @return: Any
+        @desc: the object that was read from file
+        """
         with open(filename, "rb") as fp:
             return pickle.load(fp)
 
 
 class Algorithm:
+    """
+    Base class for indexing algorithms
+    """
+
     def __init__(self, posting_codec: Codec) -> None:
         self._codec: Codec = posting_codec
         self._lexicon: dict = None
 
     @property
-    def codec(self):
+    def codec(self) -> Codec:
+        """
+        @return
+        @desc: returns the codec used by the algorithm
+        """
         return self._codec
 
     @property
-    def lexicon(self):
+    def lexicon(self) -> dict:
+        """
+        @return
+        @desc: returns the lexicon
+        """
         return self._lexicon
 
     @lexicon.setter
-    def lexicon(self, value):
-        self._lexicon = value
+    def lexicon(self, lexicon: dict):
+        """
+            @param: lexicon
+            @desc: new lexicon
+        """
+        self._lexicon = lexicon
 
     def index(self, docs: list[Document]) -> str:
+        """
+            indexes the document in the list
+
+            @param: docs
+            @desc: documents to index
+
+            @return: str
+            @desc: the filename of the generated posting list
+        """
         raise NotImplementedError
 
     def merge(self, posting_filenames: deque[tuple]) -> int:
+        """
+            merges the partial indexes
+
+            @param: posting_filenames
+            @desc: queue of tuples of filenames and read offset for the partial indexes
+
+            @return: int
+            @desc: size of the index from the merge
+        """
         raise NotImplementedError
 
 
 class BSBI(Algorithm):
     """
+    An implementation of the Block Sort-Base Indexing algorithm
     posting_file structure(bin): |term_id(4)|doc_id(4)|term_freq(4)|
     """
 
@@ -142,8 +283,23 @@ class BSBI(Algorithm):
         self,
         posting_file_0: IO[bytes],
         posting_file_1: IO[bytes],
-        out_posting_file: IO[bytes]
+        out_posting_file: IO[bytes],
     ) -> int:
+        """
+            merges two index files into one index file
+
+            @param: posting_file_0
+            @desc: the first index file to merge
+
+            @param: posting_file_1
+            @desc: the second index file to merge
+
+            @param: out_posting_file
+            @desc: the file to write the merge
+
+            @return: int
+            @desc: size of the merge file
+        """
 
         left: list = self.codec.decode(
             FileReader.read_bytes(posting_file_0, self.codec)
@@ -185,47 +341,76 @@ class BSBI(Algorithm):
         return written
 
     def merge(self, posting_filenames: deque[tuple]) -> str:
+        """
+            merges the partial indexes
+
+            @param: posting_filenames
+            @desc: queue of tuples of filenames and read offset for the partial indexes
+
+            @return: int
+            @desc: size of the index from the merge
+        """        
+        # count for number of merge files created
         merged: int = 0
 
         while len(posting_filenames) > 1:
+            # assign merge file name
             out_filename: str = f"out_file_{merged}.bin"
             merged += 1
 
+            # open merge file for writing bytes
             out_file: IO[bytes] = open(out_filename, "wb")
 
+            # remove two partial index file name from queue
             filename_0, pos_0 = posting_filenames.popleft()
             filename_1, pos_1 = posting_filenames.popleft()
 
+            # open first partial index for reading
             file_0: IO[bytes] = open(filename_0, "rb")
             file_0.seek(0, os.SEEK_END)
 
+            # compute size of first partial index file
             size_0: int = file_0.tell()
             file_0.seek(pos_0)
 
+            # open second partial index for reading
             file_1: IO[bytes] = open(filename_1, "rb")
             file_1.seek(0, os.SEEK_END)
 
+            # compute size of second partial index file
             size_1: int = file_1.tell()
             file_1.seek(pos_1)
+            # merge the partial indexes
             self.___merge(file_0, file_1, out_file)
-
+            
+            # if partial index file wasn't consumed completely add it back to queue with it's read offset
             if file_0.tell() < size_0:
                 posting_filenames.appendleft((filename_0, file_0.tell()))
 
             if file_1.tell() < size_1:
                 posting_filenames.appendleft((filename_1, file_1.tell()))
-
+            
+            # add merge file name to the queue
             posting_filenames.append((out_filename, 0))
 
+            # release resources
             file_0.close()
             file_1.close()
             out_file.close()
 
+        # remove the last merge file from the queue
         index_filename, _ = posting_filenames.popleft()
+        # add read offset for each term to the lexicon
         self.add_offset(index_filename)
         return index_filename
 
     def add_offset(self, filename: str):
+        """
+            reads the index file and adds read offset to the lexicon
+
+            @param: filename
+            @desc: the index file name
+        """
         with open(filename, "rb") as fp:
             offset = 0
             prev_id = -1
