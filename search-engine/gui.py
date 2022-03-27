@@ -6,6 +6,9 @@ DOC_LIST = "DOC-LIST"
 SEARCH_BOX = "SEARCH_BOX"
 
 def format_docs(docs: list[tuple]) -> list[tuple]:
+    if not docs:
+        return ["No relevant document found. Please refine your query."]
+        
     for i in range(len(docs)):
         id, score = docs[i]
         docs[i] =  f"URL: https://en.wikipedia.org/wiki?curid={id}, Score: {round(score, 2)}"

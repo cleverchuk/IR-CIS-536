@@ -121,7 +121,7 @@ class Algorithm:
     def index(self, docs: list[Document]) -> str:
         raise NotImplementedError
 
-    def merge(self, posting_filenames: deque[tuple], out_size: int) -> int:
+    def merge(self, posting_filenames: deque[tuple]) -> int:
         raise NotImplementedError
 
 
@@ -142,8 +142,7 @@ class BSBI(Algorithm):
         self,
         posting_file_0: IO[bytes],
         posting_file_1: IO[bytes],
-        out_posting_file: IO[bytes],
-        out_size: int,
+        out_posting_file: IO[bytes]
     ) -> int:
 
         left: list = self.codec.decode(
@@ -154,7 +153,7 @@ class BSBI(Algorithm):
         )
         written: int = 0
 
-        while left and right and written < out_size:
+        while left and right:
             written += self.codec.posting_size
 
             if left[0] < right[0] or (left[0] == right[0] and left[1] < right[1]):
@@ -167,16 +166,16 @@ class BSBI(Algorithm):
                 bytes_ = FileReader.read_bytes(posting_file_1, self.codec)
                 right = self.codec.decode(bytes_)
 
-            if not left and written < out_size:
-                while right and written < out_size:
+            if not left:
+                while right:
                     out_posting_file.write(self.codec.encode(right))
                     bytes_ = FileReader.read_bytes(posting_file_1, self.codec)
 
                     right = self.codec.decode(bytes_)
                     written += self.codec.posting_size
 
-            if not right and written < out_size:
-                while left and written < out_size:
+            if not right:
+                while left:
                     out_posting_file.write(self.codec.encode(left))
                     bytes_ = FileReader.read_bytes(posting_file_0, self.codec)
                     left = self.codec.decode(bytes_)
@@ -185,7 +184,7 @@ class BSBI(Algorithm):
 
         return written
 
-    def merge(self, posting_filenames: deque[tuple], out_size: int = 1048576) -> str:
+    def merge(self, posting_filenames: deque[tuple]) -> str:
         merged: int = 0
 
         while len(posting_filenames) > 1:
@@ -208,7 +207,7 @@ class BSBI(Algorithm):
 
             size_1: int = file_1.tell()
             file_1.seek(pos_1)
-            self.___merge(file_0, file_1, out_file, out_size)
+            self.___merge(file_0, file_1, out_file)
 
             if file_0.tell() < size_0:
                 posting_filenames.appendleft((filename_0, file_0.tell()))
@@ -366,7 +365,7 @@ class Indexer:
     def lexer(self):
         return self._lexer
 
-    def index(self, file_path, block_size=1048576, n = -1):
+    def index(self, file_path, block_size=33554432, n = -1):
         posting_filenames: deque = deque()
         block = []
         for docs_ in FileReader.read_docs(file_path, block_size, n):
