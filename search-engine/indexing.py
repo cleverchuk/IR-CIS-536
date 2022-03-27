@@ -366,10 +366,10 @@ class Indexer:
     def lexer(self):
         return self._lexer
 
-    def index(self, file_path, block_size=1048576):
+    def index(self, file_path, block_size=1048576, n = -1):
         posting_filenames: deque = deque()
         block = []
-        for docs_ in FileReader.read_docs(file_path, block_size, 10):
+        for docs_ in FileReader.read_docs(file_path, block_size, n):
             block = []
             for doc in docs_:
                 block.append(self.lexer.lex(doc.strip()))

@@ -14,7 +14,7 @@ class Engine:
     def search(self, query: str) -> list[tuple]:
         if self.__indexed:
             return self.scorer.rank(query)
-        self.indexer.index(self.corpus_path, block_size=4096)
+        self.indexer.index(self.corpus_path)
 
         index: Index = Index(
             self.indexer.lexicon_filename,
@@ -26,12 +26,3 @@ class Engine:
         self.__indexed = True
         self.scorer = Scorer(index, self.indexer.lexer)
         return self.scorer.rank(query)
-
-
-if __name__ == "__main__":
-    engine: Engine = Engine("search-engine/tiny_wikipedia.txt")
-    start = time()
-    docs = engine.search("The twenty-sixth season of \"The Bachelor\" premiered on January 3, 2022")
-    
-    elapsed = time() - start
-    print(f"{docs}: {elapsed}")
