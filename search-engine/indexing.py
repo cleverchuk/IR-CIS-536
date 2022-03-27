@@ -61,13 +61,14 @@ class TextCodec(Codec):
 
         return None
 
+
 class FileReader:
     """
     Convenience class for efficiently reading files
     """
 
     @staticmethod
-    def read_docs(path: str, block_size=4096, n=10):
+    def read_docs(path: str, block_size=4096, n=-1):
         """
         read n lines if n > -1 otherwise reads the whole file
         """
@@ -87,8 +88,8 @@ class FileReader:
 
         return file.readline()
 
-class FilePickler:
 
+class FilePickler:
     @staticmethod
     def dump(data: Any, filename: str) -> None:
         with open(filename, "wb") as fp:
@@ -99,22 +100,28 @@ class FilePickler:
         with open(filename, "rb") as fp:
             return pickle.load(fp)
 
+
 class Algorithm:
     def __init__(self, posting_codec: Codec) -> None:
-        self._codec = posting_codec
+        self._codec: Codec = posting_codec
+        self._lexicon: dict = None
 
     @property
     def codec(self):
         return self._codec
 
+    @property
+    def lexicon(self):
+        return self._lexicon
+
+    @lexicon.setter
+    def lexicon(self, value):
+        self._lexicon = value
+
     def index(self, docs: list[Document]) -> str:
         raise NotImplementedError
 
-    def merge(
-        self,
-        posting_filenames: deque[tuple],
-        out_size: int = 409600,
-    ) -> int:
+    def merge(self, posting_filenames: deque[tuple], out_size: int) -> int:
         raise NotImplementedError
 
 
@@ -125,11 +132,11 @@ class BSBI(Algorithm):
 
     def __init__(self, posting_codec: Codec = BinaryCodec()) -> None:
         super().__init__(posting_codec)
-        self.lexicon: dict = defaultdict(lambda: (-1, 0))
+        self.lexicon = defaultdict(lambda: (-1, 0))
         self.term_lexicon: dict = {}
-        self.terms: int = 0
 
-        self.postings = 0
+        self.terms: int = 0
+        self.postings: int = 0
 
     def ___merge(
         self,
@@ -230,9 +237,7 @@ class BSBI(Algorithm):
 
                 term_id, *_ = self.codec.decode(bytes_)
                 if prev_id != term_id:
-                    term_id, doc_freq = self.lexicon[
-                        self.term_lexicon[term_id]
-                    ]
+                    term_id, doc_freq = self.lexicon[self.term_lexicon[term_id]]
                     self.lexicon[self.term_lexicon[term_id]] = (
                         term_id,
                         doc_freq,
@@ -282,8 +287,11 @@ class BSBI(Algorithm):
                     break
                 yield self.codec.decode(bytes_)
 
+
 class Index:
-    def __init__(self, lexicon_path: str, posting_path: str, doc_stats_path: str, codec: Codec ):
+    def __init__(
+        self, lexicon_path: str, posting_path: str, doc_stats_path: str, codec: Codec
+    ):
         with open(lexicon_path, "rb") as fp:
             self.lexicon: dict = defaultdict(lambda: (-1, 0, 0), pickle.load(fp))
 
@@ -301,18 +309,18 @@ class Index:
     def avgdl(self):
         if self._avg_dl:
             return self._avg_dl
-        
+
         self._avg_dl = mean(self.doc_stats.values())
         return self._avg_dl
 
     @property
     def corpus_size(self):
         return len(self.doc_stats)
-    
+
     def release(self) -> None:
         self.posting_file.close()
 
-    #FIX: use generators
+    # FIX: use generators
     def fetch_docs(self, term: str) -> tuple[list[list[int]], int]:
         _, doc_freq, offset = self.lexicon[term]
         postings = []
@@ -327,29 +335,47 @@ class Index:
 
 class Indexer:
     """
-    A driver class for putting it all together
+    The indexer
     """
+
+    def __init__(
+        self, algo: Algorithm = BSBI(TextCodec()), lexer: Lexer = Lexer()
+    ) -> None:
+        self.algo: Algorithm = algo
+        self._lexer: Lexer = lexer
+        self._lexicon_filename = "lexicon.bin"
+        self._doc_stat_filename = "doc_stats.bin"
+
     @property
     def index_filename(self):
         return self._index_filename
 
-    def run(self, file_path):
-        lexer: Lexer = Lexer()
-        algo: Algorithm = BSBI(TextCodec())
+    @property
+    def lexicon_filename(self):
+        return self._lexicon_filename
 
+    @property
+    def doc_stat_filename(self):
+        return self._doc_stat_filename
+
+    @property
+    def codec(self):
+        return self.algo.codec
+
+    @property
+    def lexer(self):
+        return self._lexer
+
+    def index(self, file_path, block_size=1048576):
         posting_filenames: deque = deque()
         block = []
-        for docs_ in FileReader.read_docs(file_path):
+        for docs_ in FileReader.read_docs(file_path, block_size, 10):
             block = []
             for doc in docs_:
-                block.append(lexer.lex(doc.strip()))
+                block.append(self.lexer.lex(doc.strip()))
 
-            posting_filenames.appendleft((algo.index(block), 0))
+            posting_filenames.appendleft((self.algo.index(block), 0))
 
-        self._index_filename = algo.merge(posting_filenames)
-        FilePickler.dump(dict(algo.lexicon), "lexicon.bin")
-        FilePickler.dump(lexer.doc_stats, "doc_stats.bin")
-
-if __name__ == "__main__":
-    file_path = "search-engine/tiny_wikipedia.txt"
-    Indexer().run(file_path)
+        self._index_filename = self.algo.merge(posting_filenames)
+        FilePickler.dump(dict(self.algo.lexicon), self._lexicon_filename)
+        FilePickler.dump(self.lexer.doc_stats, self._doc_stat_filename)

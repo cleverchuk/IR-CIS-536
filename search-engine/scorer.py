@@ -5,11 +5,11 @@ from indexing import *
 
 
 class Scorer:
-    def __init__(self, lexer=Lexer(), index=Index()) -> None:
+    def __init__(self, index: Index, lexer=Lexer()) -> None:
         self.lexer = lexer
         self.index = index
 
-    def rank(self, query: str, k: int = 10) -> list[int]:
+    def rank(self, query: str, k: int = 10) -> list[tuple]:
         tokens = self.lexer.word_tokenize(query)
         self.lexer.stem(tokens)
         q_freq = Counter(tokens)
@@ -28,10 +28,11 @@ class Scorer:
                     self.index.corpus_size,
                 )
 
-        first_k = sorted(scores.values(), reverse=True)[:k]
+        first_k = sorted(scores.items(), key=lambda pair: pair[1], reverse=True)[:k]
         return first_k
 
     def score(
+        self,
         query_freq: int,
         term_freq: int,
         avgdl: int,
@@ -42,7 +43,7 @@ class Scorer:
         k = 5
         b = 0.5
 
-        idf = log(corpus_size + 1) / log(doc_freq)
+        idf = log((corpus_size + 1) / doc_freq).real
         numerator = query_freq * (k + 1) * term_freq * idf
         denom = term_freq + k * (1 - b + b * doc_length / avgdl)
 
