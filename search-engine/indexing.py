@@ -319,17 +319,13 @@ class Index:
     def release(self) -> None:
         self.posting_file.close()
 
-    # FIX: use generators
     def fetch_docs(self, term: str) -> tuple[list[list[int]], int]:
         _, doc_freq, offset = self.lexicon[term]
-        postings = []
 
         self.posting_file.seek(offset)
         for _ in range(doc_freq):
             bytes_: bytes = FileReader.read_bytes(self.posting_file, self.codec)
-            postings.append(self.codec.decode(bytes_))
-
-        return (postings, doc_freq)
+            yield (self.codec.decode(bytes_), doc_freq)
 
 
 class Indexer:
@@ -344,6 +340,7 @@ class Indexer:
         self._lexer: Lexer = lexer
         self._lexicon_filename = "lexicon.bin"
         self._doc_stat_filename = "doc_stats.bin"
+        self._index_filename = "index.bin"
 
     @property
     def index_filename(self):
@@ -365,7 +362,11 @@ class Indexer:
     def lexer(self):
         return self._lexer
 
-    def index(self, file_path, block_size=33554432, n = -1):
+    def index(self, file_path, block_size=33554432, n=-1):
+        files = os.listdir()
+        if self.index_filename in files:
+            return
+
         posting_filenames: deque = deque()
         block = []
         for docs_ in FileReader.read_docs(file_path, block_size, n):
@@ -375,6 +376,8 @@ class Indexer:
 
             posting_filenames.appendleft((self.algo.index(block), 0))
 
-        self._index_filename = self.algo.merge(posting_filenames)
+        index_filename = self.algo.merge(posting_filenames)
+        os.rename(index_filename, self.index_filename)
+
         FilePickler.dump(dict(self.algo.lexicon), self._lexicon_filename)
         FilePickler.dump(self.lexer.doc_stats, self._doc_stat_filename)

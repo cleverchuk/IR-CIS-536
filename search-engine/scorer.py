@@ -16,8 +16,7 @@ class Scorer:
 
         scores = defaultdict(int)
         for term in tokens:
-            postings, doc_freq = self.index.fetch_docs(term)
-            for posting in postings:
+            for posting, doc_freq in self.index.fetch_docs(term):
                 _, did, freq = posting
                 scores[did] += self.score(
                     q_freq[term],
