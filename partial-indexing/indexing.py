@@ -118,15 +118,12 @@ class FileReader:
                 n -= 1
 
     @staticmethod
-    def read_bytes(file: IO[bytes], codec: TextCodec) -> bytes:
+    def read_bytes(file: IO[bytes]) -> bytes:
         """
-        reads a block or a line from the given file object
+        reads a line from the given file object
 
         @param: file
         @desc: readable file object in the byte mode
-
-        @param: codec
-        @desc: codec implementation
 
         @return: bytes
         @desc: byte stream
@@ -181,7 +178,7 @@ class Algorithm:
     @property
     def codec(self) -> Codec:
         """
-        @return
+        @return: Codec
         @desc: returns the codec used by the algorithm
         """
         return self._codec
@@ -189,7 +186,7 @@ class Algorithm:
     @property
     def lexicon(self) -> dict:
         """
-        @return
+        @return: dict
         @desc: returns the lexicon
         """
         return self._lexicon
@@ -214,15 +211,15 @@ class Algorithm:
         """
         raise NotImplementedError
 
-    def merge(self, posting_filenames: deque[tuple]) -> int:
+    def merge(self, posting_filenames: deque[tuple[str,int]]) -> str:
         """
         merges the partial indexes
 
         @param: posting_filenames
         @desc: queue of tuples of filenames and read offset for the partial indexes
 
-        @return: int
-        @desc: size of the index from the merge
+        @return: str
+        @desc: file name of the merge
         """
         raise NotImplementedError
 
@@ -230,7 +227,7 @@ class Algorithm:
 class BSBI(Algorithm):
     """
     An implementation of the Block Sort-Base Indexing algorithm
-    posting_file structure(bin): |term_code|term|doc_freq|(doc_id(4),term_freq(4))(,(doc_id(4),term_freq(4)))*|
+    posting_file structure: |term_code|term|doc_freq|(doc_id,term_freq)(,(doc_id,term_freq))*|
     """
     POSTING_COUNT: int = 0
 
@@ -261,6 +258,7 @@ class BSBI(Algorithm):
         @desc: size of the merge file
         """
 
+        # read an decoded a block from the posting files
         left: list = self.codec.decode(
             FileReader.read_bytes(posting_file_0, self.codec)
         )
@@ -269,6 +267,7 @@ class BSBI(Algorithm):
         )
         written: int = 0
 
+        # merge the blocks based on the term code
         while left and right:
 
             if left[0] < right[0]:
@@ -277,7 +276,7 @@ class BSBI(Algorithm):
                 left = self.codec.decode(bytes_)
 
             elif left[0] == right[0]:
-                left[2] = max(left[2], right[2])
+                left[2] = max(left[2], right[2]) # select the max document frequency since it's cumulative
                 left[3] += right[3]
                 written += out_posting_file.write(self.codec.encode(left))
 
@@ -310,15 +309,15 @@ class BSBI(Algorithm):
 
         return written
 
-    def merge(self, posting_filenames: deque[tuple]) -> str:
+    def merge(self, posting_filenames: deque[tuple[str,int]]) -> str:
         """
         merges the partial indexes
 
         @param: posting_filenames
         @desc: queue of tuples of filenames and read offset for the partial indexes
 
-        @return: int
-        @desc: size of the index from the merge
+        @return: str
+        @desc: file name of the merge
         """
         # count for number of merge files created
         merged: int = 0
@@ -374,29 +373,42 @@ class BSBI(Algorithm):
         return index_filename
 
     def index(self, docs: list[Document], dictionary: dict) -> str:
-        posting = defaultdict(int)
+        """
+            Indexes the given document list
+
+            @param: docs
+            @desc: list of documents to index
+
+            @param: dictionary
+            @desc: the dictionary containing term -> code mapping
+
+            @return: str
+            @desc: the posting file name
+        """
+        posting = defaultdict(int) # initialize empty posting dict
         for doc in docs:
             for term in doc.content:
-                term_code, doc_freq = self.lexicon[term]
+                term_code, doc_freq = self.lexicon[term] # lookup term code and document frequency from lexicon
                 if term_code == -1:
                     term_code = dictionary[term]
-                    self.term_lexicon[term_code] = term
+                    self.term_lexicon[term_code] = term # create code -> term mapping
 
                 posting_key = (term_code, doc.id)
                 if posting_key not in posting:
-                    doc_freq += 1
+                    doc_freq += 1 # compute document frequency
 
                 posting[posting_key] += 1
-                self.lexicon[term] = (term_code, doc_freq)
+                self.lexicon[term] = (term_code, doc_freq) # update lexicon with document frequency
 
-        long_posting = defaultdict(list)
+        long_posting = defaultdict(list) # empty positing for merging
         for (term_code, doc_id), term_freq in posting.items():
             term = self.term_lexicon[term_code]
             term_code, doc_freq = self.lexicon[term]
 
             key = (term_code, term, doc_freq)
-            long_posting[key].append((doc_id, term_freq))
+            long_posting[key].append((doc_id, term_freq)) # merging the posting list into one long list
 
+        # sort list by term code
         long_posting = sorted(
             (
                 [term_code, term, doc_freq, posting]
@@ -404,13 +416,26 @@ class BSBI(Algorithm):
             ),
             key=lambda lp: lp[0],
         )
+
         filename = f"posting_{BSBI.POSTING_COUNT}.bin"
         BSBI.POSTING_COUNT += 1
+        
+        self.encode_to_file(filename, long_posting) # write to file using the provided encoding
+        return filename # return posting file name
 
-        self.encode_to_file(filename, long_posting)
-        return filename
+    def encode_to_file(self, filename: str, postings: list[int, str, int, list[tuple[int, int]]]) -> int:
+        """
+            writes the given posting list to file
 
-    def encode_to_file(self, filename: str, postings: list[list[Any]]) -> int:
+            @param: filename
+            @desc: name of file to write
+
+            @param: postings
+            @desc: list of long postings
+
+            @return: int
+            @desc: total number of bytes written to file
+        """
         total_bytes = 0
         with open(filename, "wb") as fp:
             for posting in postings:
@@ -418,7 +443,16 @@ class BSBI(Algorithm):
 
         return total_bytes
 
-    def decode_from_file(self, filename: str) -> list:
+    def decode_from_file(self, filename: str) -> list[int, str, int, list[tuple[int, int]]]:
+        """
+            reads long posting list from the given file name
+
+            @param: filename
+            @desc: name of file to write
+
+            @return: list
+            @desc: list of long postings
+        """        
         with open(filename, "rb") as fp:
             while True:
                 bytes_ = fp.readline()
@@ -451,27 +485,43 @@ class Indexer:
         return self._lexer
 
     def index(self, file_path, block_size=33554432, n=-1) -> None:
+        """
+            creates an index for the given file
+
+            @param: file_path
+            @desc: path to file to be indexed
+
+            @param: block_size
+            @desc: the size of block to read
+
+            @param: n
+            @desc: the number of blocks to read. -1 to read the all blocks
+        """
         files = os.listdir()
-        index_filename = f"index{os.path.splitext(file_path)[-1][1:]}.txt"
+        index_filename = f"index{os.path.splitext(file_path)[-1][1:]}.txt" # avoid index an already indexed file
         if index_filename in files:
             return
 
         posting_filenames: deque = deque()
         block = []
+        # the indexing loop
         for docs in FileReader.read_docs(file_path, block_size, n):
             block = []
             for doc in docs:
-                block.append(self.lexer.lex(doc.strip()))
+                block.append(self.lexer.lex(doc.strip())) # process blocks into documents using lexer
 
             posting_filenames.appendleft(
-                (self.algo.index(block, self.lexer.dictionary), 0)
+                (self.algo.index(block, self.lexer.dictionary), 0) # index the documents using indexing algorithm
             )
 
-        merged_filename = self.algo.merge(posting_filenames)
-        os.rename(merged_filename, index_filename)
+        merged_filename = self.algo.merge(posting_filenames) # merge partial indexes
+        os.rename(merged_filename, index_filename) # rename the full index
 
 
 class Driver:
+    """
+    Convenience class for running the algorithm
+    """
     def __init__(self, filenames: list[str]) -> None:
         self.filenames: list[str] = filenames
         self.lexer = Lexer()
@@ -480,7 +530,7 @@ class Driver:
     def __make_dictionary(self, filenames: list[str]) -> None:
         dict_filename = "dictionary.txt"
         filenames_ = os.listdir()
-        if dict_filename in filenames_:
+        if dict_filename in filenames_: # try not recreate the dictionary every time
             code = 0
             dictionary: dict = dict()
             for lines in FileReader.read_docs(dict_filename, block_size=1):
@@ -490,7 +540,7 @@ class Driver:
 
             self.lexer.dictionary = dictionary
 
-        else:
+        else: # create the dictionary if we haven't done so
             for filename in filenames:
                 for docs_ in FileReader.read_docs(filename, 33554432):
                     for doc in docs_:
@@ -499,13 +549,16 @@ class Driver:
             FileWriter.write(self.lexer.dictionary.keys(), "dictionary.txt")
 
     def drive(self) -> None:
+        """
+            index all file in filenames
+        """
         for filename in self.filenames:
-            Indexer(lexer=self.lexer).index(filename)
+            Indexer(lexer=self.lexer).index(filename) # create a new indexer every time to avoid mixing indexes since the algo and lexer are stateful
 
 
 if __name__ == "__main__":
-    os.chdir("partial-indexing/wikidata")
-    filenames = filter(lambda name: name.startswith("wikidata"), os.listdir())
+    os.chdir("partial-indexing/wikidata") # switch to directory with all the files to index
+    filenames = filter(lambda name: name.startswith("wikidata"), os.listdir()) # select only the ones with wikidata in the name
 
-    driver: Driver = Driver(filenames)
-    driver.drive()
+    driver: Driver = Driver(filenames) # initialize driver with the filenames
+    driver.drive() # drive away!!
