@@ -5,3 +5,5 @@ unigram-model/
 */.vscode
 .vscode
 *.bin
+**/wikidata.*
+*.txt
