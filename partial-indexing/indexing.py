@@ -528,6 +528,9 @@ class Driver:
         self.__make_dictionary(filenames)
 
     def __make_dictionary(self, filenames: list[str]) -> None:
+        """
+            create/loads the dictionary
+        """
         dict_filename = "dictionary.txt"
         filenames_ = os.listdir()
         if dict_filename in filenames_: # try not recreate the dictionary every time

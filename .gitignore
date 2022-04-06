@@ -7,3 +7,4 @@ unigram-model/
 *.bin
 **/wikidata.*
 *.txt
+*.zip
