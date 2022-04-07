@@ -517,13 +517,13 @@ class Indexer:
     """
     The indexer
     """
-
     def __init__(
         self, algo: Algorithm = BSBI(TextCodec()), lexer: Lexer = Lexer()
     ) -> None:
         self.algo: Algorithm = algo
         self._lexer: Lexer = lexer
         self._lexicon_filename = "lexicon.bin"
+
         self._doc_stat_filename = "doc_stats.bin"
         self._index_filename = "index.bin"
 
@@ -547,22 +547,29 @@ class Indexer:
     def lexer(self):
         return self._lexer
 
-    def index(self, file_path, block_size=33554432, n=-1):
+    def index(self, filenames: list[str], block_size: int=33554432, n: int=-1):
         files = os.listdir()
         if self.index_filename in files:
             return
 
         posting_filenames: deque = deque()
-        block = []
-        for docs_ in FileReader.read_docs(file_path, block_size, n):
-            block = []
-            for doc in docs_:
-                block.append(self.lexer.lex(doc.strip()))
+        for filename in filenames:
+            for docs_ in FileReader.read_docs(filename, block_size, n):
+                block = []
+                for doc in docs_:
+                    block.append(self.lexer.lex(doc.strip()))
 
-            posting_filenames.appendleft((self.algo.index(block), 0))
+                posting_filenames.appendleft((self.algo.index(block), 0))
 
         index_filename = self.algo.merge(posting_filenames)
         os.rename(index_filename, self.index_filename)
-
         FilePickler.dump(dict(self.algo.lexicon), self._lexicon_filename)
+
         FilePickler.dump(self.lexer.doc_stats, self._doc_stat_filename)
+
+
+if __name__ == "__main__":
+    filenames = map(lambda filename: f"wikidata/{filename}", filter(lambda filename: filename.startswith("wikidata"), os.listdir("wikidata")))
+    indexer: Indexer = Indexer()
+    indexer.index(filenames)
+

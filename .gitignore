@@ -2,3 +2,6 @@
 .vscode
 unigram
 wikidata
+__pycache__
+ProjectProposal.pdf
+*.bin
