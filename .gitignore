@@ -1,7 +1,4 @@
-unigram-model/
 .DS_Store
-*/tiny_wikipedia.txt
-*/__pycache__
-*/.vscode
 .vscode
-*.bin
+unigram
+wikidata
