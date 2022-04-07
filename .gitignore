@@ -5,6 +5,7 @@ unigram-model/
 */.vscode
 .vscode
 *.bin
-**/wikidata.*
-*.txt
+wikidata.*
+*.pdf
 *.zip
+wikidata
