@@ -383,23 +383,24 @@ class BSBI(Algorithm):
             # merge the partial indexes
             self.___merge(file_0, file_1, out_file)
             
-            # if partial index file wasn't consumed completely add it back to queue with it's read offset
-            if file_0.tell() < size_0:
-                posting_filenames.appendleft((filename_0, file_0.tell()))
-
-            if file_1.tell() < size_1:
-                posting_filenames.appendleft((filename_1, file_1.tell()))
-            
             # add merge file name to the queue
             posting_filenames.append((out_filename, 0))
 
             # release resources
+            name = file_0.name
             file_0.close()
+            os.remove(name)
+
+
+            name = file_1.name
+            os.remove(name)
             file_1.close()
+
             out_file.close()
 
         # remove the last merge file from the queue
         index_filename, _ = posting_filenames.popleft()
+
         # add read offset for each term to the lexicon
         self.add_offset(index_filename)
         return index_filename
