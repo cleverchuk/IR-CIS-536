@@ -362,24 +362,15 @@ class BSBI(Algorithm):
             out_file: IO[bytes] = open(out_filename, "wb")
 
             # remove two partial index file name from queue
-            filename_0, pos_0 = posting_filenames.popleft()
-            filename_1, pos_1 = posting_filenames.popleft()
+            filename_0, _ = posting_filenames.popleft()
+            filename_1, _ = posting_filenames.popleft()
 
             # open first partial index for reading
             file_0: IO[bytes] = open(filename_0, "rb")
-            file_0.seek(0, os.SEEK_END)
-
-            # compute size of first partial index file
-            size_0: int = file_0.tell()
-            file_0.seek(pos_0)
 
             # open second partial index for reading
             file_1: IO[bytes] = open(filename_1, "rb")
-            file_1.seek(0, os.SEEK_END)
 
-            # compute size of second partial index file
-            size_1: int = file_1.tell()
-            file_1.seek(pos_1)
             # merge the partial indexes
             self.___merge(file_0, file_1, out_file)
             
@@ -387,14 +378,11 @@ class BSBI(Algorithm):
             posting_filenames.append((out_filename, 0))
 
             # release resources
-            name = file_0.name
             file_0.close()
-            os.remove(name)
+            os.remove(filename_0)
 
-
-            name = file_1.name
-            os.remove(name)
             file_1.close()
+            os.remove(filename_1)
 
             out_file.close()
 
@@ -449,7 +437,7 @@ class BSBI(Algorithm):
                 posting[posting_key] += 1
                 self.lexicon[term] = (term_id, doc_freq)
 
-        postings = sorted([[tid, did, freq] for (tid, did), freq in posting.items()])
+        postings = sorted(([tid, did, freq] for (tid, did), freq in posting.items()))
         filename = f"posting_{self.postings}.bin"
         self.postings += 1
 

@@ -49,7 +49,7 @@ class Lexer:
     def word_tokenize(self, content: str) -> list[str]:
         content_ = content.lower()
         content_ = REGEX.sub("", content_)
-        content_ = [WORD_REGEX.sub(r"\2", token) for token in  TOKENIZER.findall(content_)]
+        content_ = [WORD_REGEX.sub(r"\2", token) for token in  TOKENIZER.findall(content_) if token not in string.punctuation and len(token) > 3]
 
         return content_
 

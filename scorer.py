@@ -9,7 +9,7 @@ class Scorer:
         self.lexer = lexer
         self.index = index
 
-    def rank(self, query: str, k: int = 10) -> list[tuple]:
+    def relevant_docs(self, query: str, k: int = 10) -> list[tuple]:
         tokens = self.lexer.word_tokenize(query)
         self.lexer.stem(tokens)
         q_freq = Counter(tokens)

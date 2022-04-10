@@ -25,7 +25,7 @@ class Engine:
         """
         if self.__indexed:
             # rank documents that are relevant to the query
-            return self.scorer.rank(query)
+            return self.scorer.relevant_docs(query)
         self.indexer.index(self.corpus_path) # index the corpus
 
         # create an Index data structure for fast search
@@ -41,4 +41,4 @@ class Engine:
         
         # initialize the scorer with the index and the lexer
         self.scorer = Scorer(index, self.indexer.lexer)
-        return self.scorer.rank(query)
+        return self.scorer.relevant_docs(query)
