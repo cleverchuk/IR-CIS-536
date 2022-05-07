@@ -570,7 +570,7 @@ class Indexer:
 
 
 if __name__ == "__main__":
-    filenames = ["wikicorpus.txt"]
+    filenames = ["tiny_wikipedia.txt"]
     indexer: Indexer = Indexer()
     indexer.index(filenames)
 

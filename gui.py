@@ -16,7 +16,7 @@ def format_docs(docs: list[tuple]) -> list[tuple]:
     return docs
 
 # Initialize the search engine
-engine: Engine = Engine("wikicorpus.txt")
+engine: Engine = Engine("tiny_wikipedia.txt")
 
 # Add a touch of color
 sg.theme("DarkAmber")

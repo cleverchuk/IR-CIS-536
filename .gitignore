@@ -5,3 +5,4 @@ wikidata
 __pycache__
 ProjectProposal.pdf
 *.bin
+*.txt
