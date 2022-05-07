@@ -421,6 +421,15 @@ class BSBI(Algorithm):
                 offset += len(bytes_)
 
     def index(self, docs: list[Document]) -> str:
+        """
+            indexes the given list of documents
+
+            @param: docs
+            @desc: list of documents to be indexed
+
+            @return: str
+            @desc: the name of the index file
+        """
         posting = defaultdict(int)
         for doc in docs:
             for term in doc.content:
@@ -462,6 +471,9 @@ class BSBI(Algorithm):
 
 
 class Index:
+    """
+    The document index used for fast look up of postings for a given term
+    """
     def __init__(
         self, lexicon_path: str, posting_path: str, doc_stats_path: str, codec: Codec
     ):
@@ -558,7 +570,7 @@ class Indexer:
 
 
 if __name__ == "__main__":
-    filenames = map(lambda filename: f"wikidata/{filename}", filter(lambda filename: filename.startswith("wikidata"), os.listdir("wikidata")))
+    filenames = ["wikicorpus.txt"]
     indexer: Indexer = Indexer()
     indexer.index(filenames)
 

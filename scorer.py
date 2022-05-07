@@ -5,11 +5,26 @@ from indexing import *
 
 
 class Scorer:
+    """
+        An implementation of BM25 scoring formula
+    """
     def __init__(self, index: Index, lexer=Lexer()) -> None:
         self.lexer = lexer
         self.index = index
 
     def relevant_docs(self, query: str, k: int = 10) -> list[tuple]:
+        """
+        tokenizes the query and retrieve all relevant document
+
+        @param: query
+        @desc: the user query
+
+        @param: k
+        @desc: the number documents to return default to ten
+
+        @return: list
+        @desc: list of document id and score pair
+        """
         tokens = self.lexer.word_tokenize(query)
         self.lexer.stem(tokens)
         q_freq = Counter(tokens)
@@ -39,6 +54,30 @@ class Scorer:
         doc_freq: int,
         corpus_size: int,
     ) -> float:
+        """
+        compute the BM25 score using the given parameters
+
+        @param: query_freq
+        @desc: the number of times the term appeared in the query
+
+        @param: term_freq
+        @desc: the number of times the term appeared in the document
+
+        @param: avgdl
+        @desc: the average document length
+
+        @param: doc_length
+        @desc: the length of the document
+
+        @param: doc_freq
+        @desc: the number of documents that the term appeared in
+
+        @param: corpus_size
+        @desc: the number of documents in the corpus
+
+        @return: float
+        @desc: the score of the document for the term being considered
+        """
         k = 5 # abitrary value. you can pick any that works for your dataset
         b = 0.5 # abitrary value. you can pick any that works for your dataset
 
