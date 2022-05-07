@@ -24,7 +24,7 @@ class Engine:
 
         """
         if self.__indexed:
-            # rank documents that are relevant to the query
+            # return the documents that are relevant to the query
             return self.scorer.relevant_docs(query)
         self.indexer.index(self.corpus_path) # index the corpus
 

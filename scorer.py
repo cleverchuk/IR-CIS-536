@@ -39,8 +39,8 @@ class Scorer:
         doc_freq: int,
         corpus_size: int,
     ) -> float:
-        k = 5
-        b = 0.5
+        k = 5 # abitrary value. you can pick any that works for your dataset
+        b = 0.5 # abitrary value. you can pick any that works for your dataset
 
         idf = log((corpus_size + 1) / doc_freq).real
         numerator = query_freq * (k + 1) * term_freq * idf

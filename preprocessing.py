@@ -7,7 +7,7 @@ REGEX = re.compile(r"(<\w+>|<\w+/>|\w+:[/a-zA-Z0-9-.#]*)") # regex for removing 
 WORD_REGEX = re.compile(r"([`'/.,])(\w+)") # regex for removing prefixes of the first group
 TOKENIZER = re.compile('(?u)\\b\\w\\w+\\b')
 DOC_ID = re.compile(r"(?<=curid=)[0-9]+")
-URL = re.compile("https://en.wikipedia.org/wiki\?curid=\\d+")
+URL = re.compile(r"https://en.wikipedia.org/wiki\?curid=\\d+")
 
 class Document:
     """
@@ -53,7 +53,10 @@ class Lexer:
 
         return content_
 
-    def stem(self, tokens) -> None:
+    def stem(self, tokens: list[str]) -> None:
+        """
+            removes the stem from the token in tokens
+        """
         for idx, word in enumerate(tokens):
             if word not in string.punctuation:  # ignore punctuation during stemming
                 tokens[idx] = self.stemmer.stem(word)
