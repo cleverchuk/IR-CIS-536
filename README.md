@@ -1,4 +1,5 @@
 # How Run
+- get dataset from [here](https://drive.google.com/file/d/1oYBWxEwSvaBOB6zIhwRKBxuVoJElLi3B/view?usp=sharing)
 - ensure you have python 3.10+ installed.
 - execute `pip install -r requirements.txt` to get the required dependencies.
 - execute `python indexing.py` to create the inverted index. This will take ~15 minutes so go do other stuff.
