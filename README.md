@@ -1,5 +1,5 @@
 # IR-CIS-536
-This repository contains term project code  for information retrieval course CIS-536
+This repository contains code  for information retrieval course CIS-536
 
 # How Run
 - get dataset from [here](https://drive.google.com/file/d/1oYBWxEwSvaBOB6zIhwRKBxuVoJElLi3B/view?usp=sharing)
