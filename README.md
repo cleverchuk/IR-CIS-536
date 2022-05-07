@@ -1,7 +1,7 @@
 # IR-CIS-536
 This repository contains code  for information retrieval course CIS-536
 
-# How Run
+# How To Run
 - get dataset from [here](https://drive.google.com/file/d/1oYBWxEwSvaBOB6zIhwRKBxuVoJElLi3B/view?usp=sharing)
 - ensure you have python 3.10+ installed.
 - execute `pip install -r requirements.txt` to get the required dependencies.
