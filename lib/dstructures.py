@@ -1,6 +1,8 @@
 class Document:
     """
-        Data structure representing Wikipedia document
+        Data structure representing a document in a corpus.
+        Originally reperesented a nicely structured wikipedia document.
+        The only fields that're required are id and content.
     """
 
     def __init__(self, id, url: str, content: list[str]) -> None:

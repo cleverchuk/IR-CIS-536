@@ -1,3 +1,4 @@
+from abc import abstractmethod
 from lib.codec import Codec, BinaryCodec
 from collections import defaultdict, deque
 import os
@@ -57,6 +58,7 @@ class Algorithm:
         """
         self._term_lexicon = lexicon
 
+    @abstractmethod
     def index(self, docs: list[Document]) -> str:
         """
             indexes the document in the list
@@ -69,6 +71,7 @@ class Algorithm:
         """
         raise NotImplementedError
 
+    @abstractmethod
     def merge(self, posting_filenames: deque[tuple]) -> int:
         """
             merges the partial indexes

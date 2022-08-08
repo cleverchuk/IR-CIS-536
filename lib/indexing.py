@@ -101,6 +101,18 @@ class Indexer:
         return self._index
 
     def execute(self, filenames: list[str], block_size: int = 33554432, n: int = -1) -> Index:
+        """
+            indexes the corpus in represented by @param filenames
+            
+            @param: filenames
+            @desc: list of files to index
+
+            @param: block_size
+            @desc: number of lines to read per system call
+
+            @param: n
+            @desc: total number of blocks to read. -1 means read all blocks
+        """
         if self.indexed:
             return
 
@@ -128,7 +140,10 @@ class Indexer:
 
         return self._index 
 
-    def export_index(self): 
+    def export_index(self):
+        """
+            exports lexicon, term lexicon and document stats using the pickle protocol
+        """ 
         FilePickler.dump(self.index.lexicon, self._lexicon_filename)
         FilePickler.dump(self.index.doc_stats, self._doc_stat_filename)
         FilePickler.dump(self.algo.term_lexicon, self._terms_lexicon_filename)

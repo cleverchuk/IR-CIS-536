@@ -1,4 +1,7 @@
 
+from abc import abstractmethod
+
+
 class Codec:
     """
     Base class for different codec implementation
@@ -7,12 +10,14 @@ class Codec:
     def __init__(self, size) -> None:
         self._size = size
 
+    @abstractmethod
     def decode(self, bytes_: bytes) -> list:
         """
         decodes input to a list of posting
         """
         raise NotImplementedError
 
+    @abstractmethod
     def encode(self, posting: list[int]) -> bytes:
         """
         encodes a list of positing to bytes
