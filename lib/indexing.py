@@ -65,6 +65,7 @@ class Indexer:
         self._lexer: AbstractLexer = lexer
         self._lexicon_filename = "lexicon.bin"
 
+        self._terms_lexicon_filename = "terms_lexicon.bin"
         self._doc_stat_filename = "doc_stats.bin"
         self._index_filename = "index.bin"
 
@@ -130,6 +131,7 @@ class Indexer:
     def export_index(self): 
         FilePickler.dump(self.index.lexicon, self._lexicon_filename)
         FilePickler.dump(self.index.doc_stats, self._doc_stat_filename)
+        FilePickler.dump(self.algo.term_lexicon, self._terms_lexicon_filename)
 
 
 if __name__ == "__main__":

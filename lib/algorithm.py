@@ -15,6 +15,7 @@ class Algorithm:
     def __init__(self, posting_codec: Codec) -> None:
         self._codec: Codec = posting_codec
         self._lexicon: dict = None
+        self._term_lexicon: dict = None
 
     @property
     def codec(self) -> Codec:
@@ -39,6 +40,22 @@ class Algorithm:
             @desc: new lexicon
         """
         self._lexicon = lexicon
+
+    @property
+    def term_lexicon(self):
+        """
+        @return
+        @desc: returns the term lexicon
+        """
+        return self._term_lexicon
+
+    @term_lexicon.setter
+    def term_lexicon(self, lexicon: dict):
+        """
+            @param: lexicon
+            @desc: new lexicon
+        """
+        self._term_lexicon = lexicon
 
     def index(self, docs: list[Document]) -> str:
         """
