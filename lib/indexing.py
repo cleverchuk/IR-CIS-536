@@ -1,10 +1,9 @@
 from lib.codec import Codec, TextCodec
-from collections import defaultdict, deque
+from collections import deque
 import os
 from statistics import mean
 from time import time
-from typing import IO, Any
-import pickle
+from typing import IO
 from lib.algorithm import BSBI, Algorithm
 from lib.engine_io import FilePickler, FileReader
 
@@ -17,16 +16,12 @@ class Index:
     """
 
     def __init__(
-        self, lexicon_path: str, posting_file: IO[bytes], doc_stats_path: str, codec: Codec
+        self, lexicon: dict, posting_file: IO[bytes], doc_stats: dict, codec: Codec
     ):
-        with open(lexicon_path, "rb") as fp:
-            self.lexicon: dict = defaultdict(
-                lambda: (-1, 0, 0), pickle.load(fp))
-
-        with open(doc_stats_path, "rb") as fp:
-            self.doc_stats: dict = pickle.load(fp)
-
+        self.lexicon: dict = lexicon
+        self.doc_stats: dict = doc_stats
         self.posting_file: IO[bytes] = posting_file
+
         self.codec = codec
         self._avg_dl = None
 
@@ -73,6 +68,9 @@ class Indexer:
         self._doc_stat_filename = "doc_stats.bin"
         self._index_filename = "index.bin"
 
+        self._indexed = False
+        self._index: Index = None
+
     @property
     def index_filename(self):
         return self._index_filename
@@ -93,9 +91,16 @@ class Indexer:
     def lexer(self):
         return self._lexer
 
-    def index(self, filenames: list[str], block_size: int = 33554432, n: int = -1):
-        files = os.listdir()
-        if self.index_filename in files:
+    @property
+    def indexed(self):
+        return self._indexed
+
+    @property
+    def index(self):
+        return self._index
+
+    def execute(self, filenames: list[str], block_size: int = 33554432, n: int = -1) -> Index:
+        if self.indexed:
             return
 
         posting_filenames: deque = deque()
@@ -106,12 +111,25 @@ class Indexer:
                     block.append(self.lexer.lex(doc.strip()))
 
                 posting_filenames.appendleft((self.algo.index(block), 0))
-
+        
         index_filename = self.algo.merge(posting_filenames)
         os.rename(index_filename, self.index_filename)
-        FilePickler.dump(dict(self.algo.lexicon), self._lexicon_filename)
+        index_file: IO[bytes] = open(self.index_filename, "rb")
 
-        FilePickler.dump(self.lexer.doc_stats, self._doc_stat_filename)
+        # create an Index data structure for fast search
+        self._indexed = True
+        self._index = Index(
+            dict(self.algo.lexicon),
+            index_file,
+            self.lexer.doc_stats,
+            self.codec,
+        )
+
+        return self._index 
+
+    def export_index(self): 
+        FilePickler.dump(self.index.lexicon, self._lexicon_filename)
+        FilePickler.dump(self.index.doc_stats, self._doc_stat_filename)
 
 
 if __name__ == "__main__":

@@ -1,3 +1,6 @@
+from collections import defaultdict
+import pickle
+from typing import IO
 from lib.indexing import Indexer, Index
 from engine.scorer import Scorer
 
@@ -6,12 +9,13 @@ class Engine:
     """
         This is the search engine class
     """
-    def __init__(self, corpus_path: str) -> None:
-        self.indexer: Indexer = Indexer()
-        self.corpus_path: str = corpus_path
-        self.__indexed: bool = False
 
-        self.scorer: Scorer = None
+    def __init__(self, corpus_path: str, indexer: Indexer = Indexer(), index: Index = None) -> None:
+        self.indexer: Indexer = indexer
+        self.corpus_path: str = corpus_path
+        self.scorer: Scorer = Scorer(index, indexer.lexer) if index else None
+
+        self.index = index
 
     def search(self, query: str) -> list[tuple]:
         """
@@ -23,22 +27,12 @@ class Engine:
             @description: a list of document ids and score pair           
 
         """
-        if self.__indexed:
+        if self.indexer.indexed or self.index:
             # return the documents that are relevant to the query
             return self.scorer.relevant_docs(query)
-        self.indexer.index([self.corpus_path]) # index the corpus
 
-        # create an Index data structure for fast search
-        index: Index = Index(
-            self.indexer.lexicon_filename,
-            open(self.indexer.index_filename, "rb"),
-            self.indexer.doc_stat_filename,
-            self.indexer.codec,
-        )
-
-        # update flag to true to avoid reindexing
-        self.__indexed = True
-        
+        self.index = self.indexer.execute([self.corpus_path])  # index the corpus
+        self.indexer.export_index()
         # initialize the scorer with the index and the lexer
-        self.scorer = Scorer(index, self.indexer.lexer)
+        self.scorer = Scorer(self.indexer.index, self.indexer.lexer)
         return self.scorer.relevant_docs(query)

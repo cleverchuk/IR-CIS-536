@@ -1,3 +1,4 @@
+from abc import abstractmethod
 import string
 from nltk.stem import PorterStemmer
 import re
@@ -13,16 +14,24 @@ URL = re.compile("https://en.wikipedia.org/wiki\?curid=\\d+")
 
 
 class AbstractLexer:
-    def lex(self, context: str):
+    def __init__(self) -> None:        
+        self._doc_stats: dict = {}
+
+    @abstractmethod
+    def lex(self, content: str):
         raise NotImplementedError
+
+    @property
+    def doc_stats(self):
+        return self._doc_stats
 
 class WikiLexer(AbstractLexer):
     """
         A Lexer for the corpus
     """
     def __init__(self) -> None:
+        super().__init__()
         self.stemmer: PorterStemmer = PorterStemmer()
-        self.doc_stats: dict = {}
 
     def update_stats(self, id: int, content: str) -> None:
         self.doc_stats[id] = len(content)
