@@ -81,6 +81,10 @@ class Indexer:
         return self._lexicon_filename
 
     @property
+    def terms_lexicon_filename(self):
+        return self._terms_lexicon_filename
+
+    @property
     def doc_stat_filename(self):
         return self._doc_stat_filename
 
