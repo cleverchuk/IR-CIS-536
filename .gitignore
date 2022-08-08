@@ -7,3 +7,5 @@ ProjectProposal.pdf
 *.bin
 *.txt
 solar_wind.py
+dist
+*.egg*

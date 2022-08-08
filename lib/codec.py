@@ -115,26 +115,3 @@ class TextCodec(Codec):
             return list(map(int, decoded.split()))
 
         return None
-
-
-class CloudStorageCodec(Codec):
-    SIZE = 1508
-    def __init__(self) -> None:
-        super().__init__(CloudStorageCodec.SIZE)
-
-    def decode(self, bytes_: bytes) -> list:
-        if bytes_:
-            term_id = int.from_bytes(bytes_[:4], byteorder="big")
-            term_freq = int.from_bytes(bytes_[4:8], byteorder="big")
-            doc_id = bytes_[8:].decode("utf-8")
-
-            return [term_id, doc_id, term_freq]
-
-        return None
-
-    def encode(self, posting: tuple[int, int, str]) -> bytes:
-        return (
-            posting[0].to_bytes(4, byteorder="big")
-            + posting[1].to_bytes(4, byteorder="big")
-            + posting[2].encode("utf-8")
-        )

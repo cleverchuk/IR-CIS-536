@@ -1,3 +1,16 @@
 [build-system]
 requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
+
+[project]
+name = "cleverchuk_search"
+description="simple search engine"
+readme="README.md"
+requires-python = ">=3.10"
+version = "0.0.1"
+dependencies = [
+    "nltk"
+]
+
+[tool.setuptools.packages.find]
+include = ["lib","engine"]
