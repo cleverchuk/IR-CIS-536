@@ -1,5 +1,5 @@
 from cmath import log
-from collections import Counter
+from collections import Counter, defaultdict
 from lib.lexers import *
 from lib.indexing import *
 
