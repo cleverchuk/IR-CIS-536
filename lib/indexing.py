@@ -1,14 +1,14 @@
-from codec import Codec, TextCodec
+from lib.codec import Codec, TextCodec
 from collections import defaultdict, deque
 import os
 from statistics import mean
 from time import time
 from typing import IO, Any
 import pickle
-from algorithm import BSBI, Algorithm
-from engine_io import FilePickler, FileReader
+from lib.algorithm import BSBI, Algorithm
+from lib.engine_io import FilePickler, FileReader
 
-from lexers import AbstractLexer, WikiLexer
+from lib.lexers import AbstractLexer, WikiLexer
 
 
 class Index:

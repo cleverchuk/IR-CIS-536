@@ -7,4 +7,4 @@ This repository contains code  for information retrieval course CIS-536
 - execute `pip install -r requirements.txt` to get the required dependencies.
 - execute `python indexing.py` to create the inverted index. This will take ~15 minutes so go do other stuff.
     - nltk might ask you to download some stuff for the stemmer so just follow the instructions.
-- execute `python gui.py` to interact with the gui and enter queries.
+- execute `python main.py` to interact with the gui and enter queries.

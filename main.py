@@ -1,5 +1,5 @@
 import PySimpleGUI as sg
-from engine import Engine
+from engine.engine import Engine
 
 SEARCH = "Search"
 DOC_LIST = "DOC-LIST"

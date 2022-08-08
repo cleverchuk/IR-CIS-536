@@ -1,3 +1,2 @@
 pysimplegui
 nltk
-google-cloud-storage

@@ -2,7 +2,7 @@ import string
 from nltk.stem import PorterStemmer
 import re
 
-from dstructures import Document
+from lib.dstructures import Document
 
 
 REGEX = re.compile(r"(<\w+>|<\w+/>|\w+:[/a-zA-Z0-9-.#]*)") # regex for removing url and html tags

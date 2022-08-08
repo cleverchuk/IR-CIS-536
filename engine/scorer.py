@@ -1,7 +1,7 @@
 from cmath import log
 from collections import Counter
-from lexers import *
-from indexing import *
+from lib.lexers import *
+from lib.indexing import *
 
 
 class Scorer:

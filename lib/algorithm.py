@@ -1,10 +1,10 @@
-from codec import Codec, BinaryCodec
+from lib.codec import Codec, BinaryCodec
 from collections import defaultdict, deque
 import os
 from typing import IO
-from engine_io import FileReader
+from lib.engine_io import FileReader
 
-from lexers import Document
+from lib.lexers import Document
 
 
 class Algorithm:

@@ -1,5 +1,5 @@
-from indexing import Indexer, Index
-from scorer import Scorer
+from lib.indexing import Indexer, Index
+from engine.scorer import Scorer
 
 
 class Engine:
