@@ -26,12 +26,12 @@ class Engine:
         if self.__indexed:
             # return the documents that are relevant to the query
             return self.scorer.relevant_docs(query)
-        self.indexer.index(self.corpus_path) # index the corpus
+        self.indexer.index([self.corpus_path]) # index the corpus
 
         # create an Index data structure for fast search
         index: Index = Index(
             self.indexer.lexicon_filename,
-            self.indexer.index_filename,
+            open(self.indexer.index_filename, "rb"),
             self.indexer.doc_stat_filename,
             self.indexer.codec,
         )

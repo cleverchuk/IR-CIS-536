@@ -1,6 +1,6 @@
 from cmath import log
 from collections import Counter
-from preprocessing import *
+from lexers import *
 from indexing import *
 
 
@@ -8,7 +8,7 @@ class Scorer:
     """
         An implementation of BM25 scoring formula
     """
-    def __init__(self, index: Index, lexer=Lexer()) -> None:
+    def __init__(self, index: Index, lexer=WikiLexer()) -> None:
         self.lexer = lexer
         self.index = index
 
