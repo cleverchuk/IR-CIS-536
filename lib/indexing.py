@@ -1,3 +1,4 @@
+import random
 from lib.codec import Codec, TextCodec
 from collections import deque
 import os
@@ -8,6 +9,11 @@ from lib.algorithm import BSBI, Algorithm
 from lib.engine_io import FilePickler, FileReader
 
 from lib.lexers import AbstractLexer, WikiLexer
+
+from sklearn.feature_extraction.text import TfidfVectorizer
+
+# maximum number of terms to compare when we encounter unknown term
+MAX_TERMS = int(os.getenv("MAX_TERMS", 10))
 
 
 class Index:
@@ -24,6 +30,7 @@ class Index:
 
         self.codec = codec
         self._avg_dl = None
+        self.vectorizer = TfidfVectorizer()
 
     def doc_length(self, doc_id: int):
         return self.doc_stats[doc_id]
@@ -43,7 +50,8 @@ class Index:
     def release(self) -> None:
         self.posting_file.close()
 
-    def fetch_docs(self, term: str) -> tuple[list[list[int]], int]:
+    def fetch_index_record(self, term: str) -> tuple[list[list[int]], int]:
+        term = term if term in self.lexicon else self.handle_unknown_term(term)
         _, doc_freq, offset = self.lexicon[term]
 
         self.posting_file.seek(offset)
@@ -51,6 +59,39 @@ class Index:
             bytes_: bytes = FileReader.read_bytes(
                 self.posting_file, self.codec)
             yield (self.codec.decode(bytes_), doc_freq)
+
+    def compute_similarity(self, term0: str, term1: str) -> float:
+        """
+            calculates the cosine similarity of the two terms
+            @param term0
+            @desc: first term 
+
+            @param term1
+            @desc: second term
+
+            @return float
+            @desc: range [0, 1]
+        """
+        try:
+            tfidf = self.vectorizer.fit_transform([term0, term1])
+            return (tfidf * tfidf.T).A[0, 1]
+        except:
+            return 0
+
+    def handle_unknown_term(self, term: str) -> str:
+        best_match = None
+        best_score = -1
+        terms = list(self.lexicon.keys())
+
+        random.shuffle(terms)
+        tslice = terms[:MAX_TERMS]
+        for key in tslice:
+            score = self.compute_similarity(term, key)
+            if score > best_score:
+                best_match = key
+                best_score = score
+
+        return best_match
 
 
 class Indexer:
@@ -107,7 +148,7 @@ class Indexer:
     def execute(self, filenames: list[str], block_size: int = 33554432, n: int = -1) -> Index:
         """
             indexes the corpus in represented by @param filenames
-            
+
             @param: filenames
             @desc: list of files to index
 
@@ -128,7 +169,7 @@ class Indexer:
                     block.append(self.lexer.lex(doc.strip()))
 
                 posting_filenames.appendleft((self.algo.index(block), 0))
-        
+
         index_filename = self.algo.merge(posting_filenames)
         os.rename(index_filename, self.index_filename)
         index_file: IO[bytes] = open(self.index_filename, "rb")
@@ -142,12 +183,12 @@ class Indexer:
             self.codec,
         )
 
-        return self._index 
+        return self._index
 
     def export_index(self):
         """
             exports lexicon, term lexicon and document stats using the pickle protocol
-        """ 
+        """
         FilePickler.dump(self.index.lexicon, self._lexicon_filename)
         FilePickler.dump(self.index.doc_stats, self._doc_stat_filename)
         FilePickler.dump(self.algo.term_lexicon, self._terms_lexicon_filename)

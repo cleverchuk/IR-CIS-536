@@ -9,7 +9,8 @@ readme="README.md"
 requires-python = ">=3.10"
 version = "0.0.1"
 dependencies = [
-    "nltk"
+    "nltk",
+    "sklearn"
 ]
 
 [tool.setuptools.packages.find]

@@ -27,6 +27,10 @@ class AbstractLexer:
     def stem(self, tokens: list[str]) -> None:
         pass
 
+    @abstractmethod
+    def word_tokenize(self, query: str) -> list[str]:
+        pass
+
     @property
     def doc_stats(self):
         return self._doc_stats
