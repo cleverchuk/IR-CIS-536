@@ -1,6 +1,6 @@
-from lib.codec import BinaryCodec, TextCodec
 import pickle
 from typing import IO, Any
+from cleverchuk.lib.codec import BinaryCodec, TextCodec
 
 
 class FileReader:

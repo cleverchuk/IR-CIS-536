@@ -1,14 +1,14 @@
 import random
-from lib.codec import Codec, TextCodec
 from collections import deque
 import os
 from statistics import mean
 from time import time
 from typing import IO
-from lib.algorithm import BSBI, Algorithm
-from lib.engine_io import FilePickler, FileReader
+from cleverchuk.lib.codec import Codec, TextCodec
+from cleverchuk.lib.algorithm import BSBI, Algorithm
+from cleverchuk.lib.engine_io import FilePickler, FileReader
 
-from lib.lexers import AbstractLexer, WikiLexer
+from cleverchuk.lib.lexers import AbstractLexer, WikiLexer
 
 from sklearn.feature_extraction.text import TfidfVectorizer
 
@@ -82,6 +82,7 @@ class Index:
         best_match = None
         best_score = -1
         terms = list(self.lexicon.keys())
+        # may use terms that start with same character instead of randomizing
 
         random.shuffle(terms)
         tslice = terms[:MAX_TERMS]

@@ -1,7 +1,7 @@
 from cmath import log
 from collections import Counter, defaultdict
-from lib.lexers import *
-from lib.indexing import *
+from cleverchuk.lib.lexers import *
+from cleverchuk.lib.indexing import *
 
 
 class Scorer:

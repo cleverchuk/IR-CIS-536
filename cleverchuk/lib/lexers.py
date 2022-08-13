@@ -3,7 +3,7 @@ import string
 from nltk.stem import PorterStemmer
 import re
 
-from lib.dstructures import Document
+from cleverchuk.lib.dstructures import Document
 
 
 # regex for removing url and html tags

@@ -1,5 +1,5 @@
-# IR-CIS-536
-This repository contains code  for information retrieval course CIS-536
+# CleverChuk Search Engine
+A simple and extensible search engine backend built while taking CIS-536 at UMICH. This library has a main.py file that you can execute following the HOW-TO below.
 
 # How To Run
 - get dataset from [here](https://drive.google.com/file/d/1oYBWxEwSvaBOB6zIhwRKBxuVoJElLi3B/view?usp=sharing)

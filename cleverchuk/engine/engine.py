@@ -1,8 +1,5 @@
-from collections import defaultdict
-import pickle
-from typing import IO
-from lib.indexing import Indexer, Index
-from engine.scorer import Scorer
+from cleverchuk.lib.indexing import Indexer, Index
+from cleverchuk.engine.scorer import Scorer
 
 
 class Engine:

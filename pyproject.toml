@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "cleverchuk-search-engine"
-description="simple extensible search engine backend"
+description="simple and extensible search engine backend"
 readme="README.md"
 requires-python = ">=3.10"
 version = "0.0.1"
@@ -14,4 +14,4 @@ dependencies = [
 ]
 
 [tool.setuptools.packages.find]
-include = ["lib","engine"]
+include = ["cleverchuk.lib", "cleverchuk.engine"]

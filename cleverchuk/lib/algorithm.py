@@ -1,11 +1,10 @@
 from abc import abstractmethod
-from lib.codec import Codec, BinaryCodec
-from collections import defaultdict, deque
 import os
 from typing import IO
-from lib.engine_io import FileReader
-
-from lib.lexers import Document
+from cleverchuk.lib.engine_io import FileReader
+from cleverchuk.lib.codec import Codec, BinaryCodec
+from collections import defaultdict, deque
+from cleverchuk.lib.lexers import Document
 
 
 class Algorithm:
