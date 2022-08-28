@@ -4,6 +4,7 @@ from typing import IO
 from cleverchuk.lib.engine_io import FileReader
 from cleverchuk.lib.codec import Codec, BinaryCodec
 from collections import defaultdict, deque
+from cleverchuk.lib.fs import AbstractFile, AbstractFileFactory, LocalFile
 from cleverchuk.lib.lexers import Document
 
 
@@ -12,8 +13,9 @@ class Algorithm:
     Base class for indexing algorithms
     """
 
-    def __init__(self, posting_codec: Codec) -> None:
+    def __init__(self, fileFactory: AbstractFileFactory, posting_codec: Codec) -> None:
         self._codec: Codec = posting_codec
+        self._fileFactory = fileFactory
         self._lexicon: dict = None
         self._term_lexicon: dict = None
 
@@ -31,7 +33,7 @@ class Algorithm:
         @return
         @desc: returns the lexicon
         """
-        return self._lexicon
+        return dict(self._lexicon)
 
     @lexicon.setter
     def lexicon(self, lexicon: dict):
@@ -47,7 +49,7 @@ class Algorithm:
         @return
         @desc: returns the term lexicon
         """
-        return self._term_lexicon
+        return dict(self._term_lexicon)
 
     @term_lexicon.setter
     def term_lexicon(self, lexicon: dict):
@@ -90,10 +92,10 @@ class BSBI(Algorithm):
     posting_file structure(bin): |term_id(4)|doc_id(4)|term_freq(4)|
     """
 
-    def __init__(self, posting_codec: Codec = BinaryCodec()) -> None:
-        super().__init__(posting_codec)
-        self.lexicon = defaultdict(lambda: (-1, 0))
-        self.term_lexicon: dict = {}
+    def __init__(self, fileFactory: AbstractFileFactory, posting_codec: Codec) -> None:
+        super().__init__(fileFactory, posting_codec)
+        self._lexicon = defaultdict(lambda: (-1, 0, 0))
+        self._term_lexicon: dict = {}
 
         self.terms: int = 0
         self.postings: int = 0
@@ -178,17 +180,17 @@ class BSBI(Algorithm):
             merged += 1
 
             # open merge file for writing bytes
-            out_file: IO[bytes] = open(out_filename, "wb")
+            out_file: IO[bytes] = self._fileFactory.create(out_filename, "wb")
 
             # remove two partial index file name from queue
             filename_0, _ = posting_filenames.popleft()
             filename_1, _ = posting_filenames.popleft()
 
             # open first partial index for reading
-            file_0: IO[bytes] = open(filename_0, "rb")
+            file_0: IO[bytes] = self._fileFactory.create(filename_0, "rb")
 
             # open second partial index for reading
-            file_1: IO[bytes] = open(filename_1, "rb")
+            file_1: IO[bytes] = self._fileFactory.create(filename_1, "rb")
 
             # merge the partial indexes
             self.___merge(file_0, file_1, out_file)
@@ -197,47 +199,45 @@ class BSBI(Algorithm):
             posting_filenames.append((out_filename, 0))
 
             # release resources
-            file_0.close()
-            os.remove(filename_0)
-
-            file_1.close()
-            os.remove(filename_1)
-
+            file_0.remove()
+            file_1.remove()
             out_file.close()
 
         # remove the last merge file from the queue
         index_filename, _ = posting_filenames.popleft()
 
         # add read offset for each term to the lexicon
-        self.add_offset(index_filename)
+        index_file: AbstractFile = self._fileFactory.create(index_filename)
+        self.add_offset(index_file)
+        index_file.close()
         return index_filename
 
-    def add_offset(self, filename: str):
+    def add_offset(self, file: AbstractFile):
         """
             reads the index file and adds read offset to the lexicon
 
             @param: filename
             @desc: the index file name
         """
-        with open(filename, "rb") as fp:
-            offset = 0
-            prev_id = -1
-            while True:
-                bytes_: bytes = FileReader.read_bytes(fp, self.codec)
-                if not bytes_:
-                    break
+        offset = 0
+        prev_id = -1
+        while True:
+            bytes_: bytes = FileReader.read_bytes(file, self.codec)
+            if not bytes_:
+                break
 
-                term_id, *_ = self.codec.decode(bytes_)
-                if prev_id != term_id:
-                    term_id, doc_freq = self.lexicon[self.term_lexicon[term_id]]
-                    self.lexicon[self.term_lexicon[term_id]] = (
-                        term_id,
-                        doc_freq,
-                        offset,
-                    )
+            term_id, *_ = self.codec.decode(bytes_)
+            if prev_id != term_id:
+                term_id, doc_freq, * \
+                    _ = self._lexicon[self._term_lexicon[term_id]]
+                self._lexicon[self._term_lexicon[term_id]] = (
+                    term_id,
+                    doc_freq,
+                    offset,
+                )
 
-                prev_id = term_id
-                offset += len(bytes_)
+            prev_id = term_id
+            offset += len(bytes_)
 
     def index(self, docs: list[Document]) -> str:
         """
@@ -252,10 +252,10 @@ class BSBI(Algorithm):
         posting = defaultdict(int)
         for doc in docs:
             for term in doc.content:
-                term_id, doc_freq = self.lexicon[term]
+                term_id, doc_freq, *_ = self._lexicon[term]
                 if term_id == -1:
                     term_id = self.terms
-                    self.term_lexicon[term_id] = term
+                    self._term_lexicon[term_id] = term
                     self.terms += 1
 
                 posting_key = (term_id, doc.id)
@@ -263,7 +263,7 @@ class BSBI(Algorithm):
                     doc_freq += 1
 
                 posting[posting_key] += 1
-                self.lexicon[term] = (term_id, doc_freq)
+                self._lexicon[term] = (term_id, doc_freq)
 
         postings = sorted(([tid, did, freq]
                           for (tid, did), freq in posting.items()))
@@ -275,17 +275,18 @@ class BSBI(Algorithm):
 
     def encode_to_file(self, filename: str, postings: list[list[int]]) -> int:
         total_bytes = len(postings) * self.codec.posting_size
-        with open(filename, "wb") as fp:
-            for posting in postings:
-                total_bytes -= fp.write(self.codec.encode(posting))
-
+        fp: AbstractFile = self._fileFactory.create(filename, "wb")
+        for posting in postings:
+            total_bytes -= fp.write(self.codec.encode(posting))
+        
+        fp.close()
         return total_bytes
 
     def decode_from_file(self, filename: str) -> list:
-        with open(filename, "rb") as fp:
-            while True:
-                bytes_ = fp.read(self.codec.posting_size)
-                if not bytes_:
-                    break
-                yield self.codec.decode(bytes_)
-
+        fp: AbstractFile = self._fileFactory.create(filename)
+        while True:
+            bytes_ = fp.read(self.codec.posting_size)
+            if not bytes_:
+                break
+            yield self.codec.decode(bytes_)
+        fp.close()

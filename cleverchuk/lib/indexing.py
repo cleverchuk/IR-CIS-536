@@ -7,6 +7,7 @@ from typing import IO
 from cleverchuk.lib.codec import Codec, TextCodec
 from cleverchuk.lib.algorithm import BSBI, Algorithm
 from cleverchuk.lib.engine_io import FilePickler, FileReader
+from cleverchuk.lib.fs import AbstractFileFactory, DefaultFileFactory
 
 from cleverchuk.lib.lexers import AbstractLexer, WikiLexer
 
@@ -101,7 +102,7 @@ class Indexer:
     """
 
     def __init__(
-        self, algo: Algorithm = BSBI(TextCodec()), lexer: AbstractLexer = WikiLexer()
+        self, algo: Algorithm = BSBI(DefaultFileFactory(), TextCodec()), lexer: AbstractLexer = WikiLexer(), fileFactory: AbstractFileFactory = DefaultFileFactory()
     ) -> None:
         self.algo: Algorithm = algo
         self._lexer: AbstractLexer = lexer
@@ -113,6 +114,7 @@ class Indexer:
 
         self._indexed = False
         self._index: Index = None
+        self.fileFactory = fileFactory
 
     @property
     def index_filename(self):
@@ -172,13 +174,12 @@ class Indexer:
                 posting_filenames.appendleft((self.algo.index(block), 0))
 
         index_filename = self.algo.merge(posting_filenames)
-        os.rename(index_filename, self.index_filename)
-        index_file: IO[bytes] = open(self.index_filename, "rb")
+        index_file: IO[bytes] = self.fileFactory.create(index_filename)
 
         # create an Index data structure for fast search
         self._indexed = True
         self._index = Index(
-            dict(self.algo.lexicon),
+            self.algo.lexicon,
             index_file,
             self.lexer.doc_stats,
             self.codec,
