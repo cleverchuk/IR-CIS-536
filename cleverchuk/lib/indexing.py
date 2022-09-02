@@ -6,7 +6,7 @@ from time import time
 from typing import IO
 from cleverchuk.lib.codec import Codec, TextCodec
 from cleverchuk.lib.algorithm import BSBI, Algorithm
-from cleverchuk.lib.engine_io import FilePickler, FileReader
+from cleverchuk.lib.fs import FilePickler, FileReader
 from cleverchuk.lib.fs import AbstractFileFactory, DefaultFileFactory
 
 from cleverchuk.lib.lexers import AbstractLexer, WikiLexer
@@ -82,15 +82,12 @@ class Index:
     def handle_unknown_term(self, term: str) -> str:
         best_match = None
         best_score = -1
-        terms = list(self.lexicon.keys())
-        # may use terms that start with same character instead of randomizing
+        #FIXME maybe use terms that start with same character or find a better approximation?
 
-        random.shuffle(terms)
-        tslice = terms[:MAX_TERMS]
-        for key in tslice:
-            score = self.compute_similarity(term, key)
+        for term in self.lexicon:
+            score = self.compute_similarity(term, term)
             if score > best_score:
-                best_match = key
+                best_match = term
                 best_score = score
 
         return best_match
@@ -164,14 +161,14 @@ class Indexer:
         if self.indexed:
             return
 
-        posting_filenames: deque = deque()
+        posting_filenames: deque[str] = deque()
         for filename in filenames:
             for docs_ in FileReader.read_docs(filename, block_size, n):
                 block = []
                 for doc in docs_:
                     block.append(self.lexer.lex(doc.strip()))
 
-                posting_filenames.appendleft((self.algo.index(block), 0))
+                posting_filenames.appendleft(self.algo.index(block))
 
         index_filename = self.algo.merge(posting_filenames)
         index_file: IO[bytes] = self.fileFactory.create(index_filename)

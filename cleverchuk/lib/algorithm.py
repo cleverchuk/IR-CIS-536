@@ -1,10 +1,9 @@
 from abc import abstractmethod
-import os
 from typing import IO
-from cleverchuk.lib.engine_io import FileReader
-from cleverchuk.lib.codec import Codec, BinaryCodec
+from cleverchuk.lib.fs import FileReader
+from cleverchuk.lib.codec import Codec
 from collections import defaultdict, deque
-from cleverchuk.lib.fs import AbstractFile, AbstractFileFactory, LocalFile
+from cleverchuk.lib.fs import AbstractFile, AbstractFileFactory
 from cleverchuk.lib.lexers import Document
 
 
@@ -161,7 +160,7 @@ class BSBI(Algorithm):
 
         return written
 
-    def merge(self, posting_filenames: deque[tuple]) -> str:
+    def merge(self, posting_filenames: deque[str]) -> str:
         """
             merges the partial indexes
 
@@ -176,15 +175,15 @@ class BSBI(Algorithm):
 
         while len(posting_filenames) > 1:
             # assign merge file name
-            out_filename: str = f"out_file_{merged}.bin"
+            out_filename: str = f"out_file_{merged}"
             merged += 1
 
             # open merge file for writing bytes
             out_file: IO[bytes] = self._fileFactory.create(out_filename, "wb")
 
             # remove two partial index file name from queue
-            filename_0, _ = posting_filenames.popleft()
-            filename_1, _ = posting_filenames.popleft()
+            filename_0 = posting_filenames.popleft()
+            filename_1 = posting_filenames.popleft()
 
             # open first partial index for reading
             file_0: IO[bytes] = self._fileFactory.create(filename_0, "rb")
@@ -196,7 +195,7 @@ class BSBI(Algorithm):
             self.___merge(file_0, file_1, out_file)
 
             # add merge file name to the queue
-            posting_filenames.append((out_filename, 0))
+            posting_filenames.append(out_filename)
 
             # release resources
             file_0.remove()
@@ -204,12 +203,13 @@ class BSBI(Algorithm):
             out_file.close()
 
         # remove the last merge file from the queue
-        index_filename, _ = posting_filenames.popleft()
+        index_filename = posting_filenames.popleft()
 
         # add read offset for each term to the lexicon
         index_file: AbstractFile = self._fileFactory.create(index_filename)
         self.add_offset(index_file)
         index_file.close()
+
         return index_filename
 
     def add_offset(self, file: AbstractFile):
@@ -267,7 +267,7 @@ class BSBI(Algorithm):
 
         postings = sorted(([tid, did, freq]
                           for (tid, did), freq in posting.items()))
-        filename = f"posting_{self.postings}.bin"
+        filename = f"posting_{self.postings}"
         self.postings += 1
 
         self.encode_to_file(filename, postings)
@@ -278,7 +278,7 @@ class BSBI(Algorithm):
         fp: AbstractFile = self._fileFactory.create(filename, "wb")
         for posting in postings:
             total_bytes -= fp.write(self.codec.encode(posting))
-        
+
         fp.close()
         return total_bytes
 

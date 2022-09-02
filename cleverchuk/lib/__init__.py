@@ -4,8 +4,8 @@ from cleverchuk.lib.codec import Codec
 from cleverchuk.lib.codec import TextCodec
 from cleverchuk.lib.codec import BinaryCodec
 from cleverchuk.lib.dstructures import Document
-from cleverchuk.lib.engine_io import FilePickler
-from cleverchuk.lib.engine_io import FileReader
+from cleverchuk.lib.fs import FilePickler
+from cleverchuk.lib.fs import FileReader
 from cleverchuk.lib.lexers import AbstractLexer
 from cleverchuk.lib.lexers import WikiLexer
 from cleverchuk.lib.indexing import Index
