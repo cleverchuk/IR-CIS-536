@@ -1,6 +1,6 @@
 from abc import abstractmethod
 from typing import IO
-from cleverchuk.lib.fs import FileReader
+from cleverchuk.lib.fs import AbstractFilenameProvider, FileReader
 from cleverchuk.lib.codec import Codec
 from collections import defaultdict, deque
 from cleverchuk.lib.fs import AbstractFile, AbstractFileFactory
@@ -12,11 +12,12 @@ class Algorithm:
     Base class for indexing algorithms
     """
 
-    def __init__(self, fileFactory: AbstractFileFactory, posting_codec: Codec) -> None:
+    def __init__(self, file_factory: AbstractFileFactory, filename_provider: AbstractFilenameProvider, posting_codec: Codec) -> None:
         self._codec: Codec = posting_codec
-        self._fileFactory = fileFactory
+        self._fileFactory = file_factory
         self._lexicon: dict = None
         self._term_lexicon: dict = None
+        self._filename_provider = filename_provider
 
     @property
     def codec(self) -> Codec:
@@ -91,13 +92,12 @@ class BSBI(Algorithm):
     posting_file structure(bin): |term_id(4)|doc_id(4)|term_freq(4)|
     """
 
-    def __init__(self, fileFactory: AbstractFileFactory, posting_codec: Codec) -> None:
-        super().__init__(fileFactory, posting_codec)
+    def __init__(self, fileFactory: AbstractFileFactory, filename_provider: AbstractFilenameProvider, posting_codec: Codec) -> None:
+        super().__init__(fileFactory, filename_provider, posting_codec)
         self._lexicon = defaultdict(lambda: (-1, 0, 0))
         self._term_lexicon: dict = {}
 
         self.terms: int = 0
-        self.postings: int = 0
 
     def ___merge(
         self,
@@ -170,13 +170,9 @@ class BSBI(Algorithm):
             @return: int
             @desc: size of the index from the merge
         """
-        # count for number of merge files created
-        merged: int = 0
-
         while len(posting_filenames) > 1:
             # assign merge file name
-            out_filename: str = f"out_file_{merged}"
-            merged += 1
+            out_filename: str = self._filename_provider.get_merge_filename()
 
             # open merge file for writing bytes
             out_file: IO[bytes] = self._fileFactory.create(out_filename, "wb")
@@ -267,8 +263,8 @@ class BSBI(Algorithm):
 
         postings = sorted(([tid, did, freq]
                           for (tid, did), freq in posting.items()))
-        filename = f"posting_{self.postings}"
-        self.postings += 1
+        filename = self._filename_provider.get_posting_filename()
+        
 
         self.encode_to_file(filename, postings)
         return filename

@@ -119,6 +119,29 @@ class AbstractFileFactory:
     def create(self, file_path, mode="rb") -> AbstractFile:
         raise NotImplementedError
 
+class AbstractFilenameProvider:
+    @abstractmethod
+    def get_posting_filename(self) -> str:
+        pass
+
+    @abstractmethod
+    def get_merge_filename(self) -> str:
+        pass
+
+class DefaultFilenameProvider(AbstractFilenameProvider):
+    def __init__(self, count: int = 0) -> None:
+        self.postings = count
+        self.merges = count
+
+    def get_posting_filename(self) -> str:
+        filename: str = f"posting_{self.postings}"
+        self.postings += 1
+        return filename
+
+    def get_merge_filename(self) -> str:        
+        filename: str = f"merge_{self.merges}"
+        self.merges += 1
+        return filename
 
 class LocalFile(AbstractFile):
     def __init__(self, file_path: str, mode: str = "rb") -> None:

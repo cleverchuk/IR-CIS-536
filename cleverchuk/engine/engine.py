@@ -29,7 +29,6 @@ class Engine:
             return self.scorer.relevant_docs(query)
 
         self.index = self.indexer.execute([self.corpus_path])  # index the corpus
-        self.indexer.export_index()
         # initialize the scorer with the index and the lexer
-        self.scorer = Scorer(self.indexer.index, self.indexer.lexer)
+        self.scorer = Scorer(self.index, self.indexer.lexer)
         return self.scorer.relevant_docs(query)

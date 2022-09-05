@@ -1,12 +1,11 @@
-import random
 from collections import deque
 import os
 from statistics import mean
 from time import time
 from typing import IO
-from cleverchuk.lib.codec import Codec, TextCodec
+from cleverchuk.lib.codec import BinaryCodec, Codec, TextCodec
 from cleverchuk.lib.algorithm import BSBI, Algorithm
-from cleverchuk.lib.fs import FilePickler, FileReader
+from cleverchuk.lib.fs import DefaultFilenameProvider, FileReader
 from cleverchuk.lib.fs import AbstractFileFactory, DefaultFileFactory
 
 from cleverchuk.lib.lexers import AbstractLexer, WikiLexer
@@ -99,35 +98,14 @@ class Indexer:
     """
 
     def __init__(
-        self, algo: Algorithm = BSBI(DefaultFileFactory(), TextCodec()), lexer: AbstractLexer = WikiLexer(), fileFactory: AbstractFileFactory = DefaultFileFactory()
+        self, algo: Algorithm = BSBI(DefaultFileFactory(), DefaultFilenameProvider(), TextCodec()), lexer: AbstractLexer = WikiLexer(), fileFactory: AbstractFileFactory = DefaultFileFactory()
     ) -> None:
         self.algo: Algorithm = algo
         self._lexer: AbstractLexer = lexer
-        self._lexicon_filename = "lexicon.bin"
-
-        self._terms_lexicon_filename = "terms_lexicon.bin"
-        self._doc_stat_filename = "doc_stats.bin"
-        self._index_filename = "index.bin"
 
         self._indexed = False
         self._index: Index = None
         self.fileFactory = fileFactory
-
-    @property
-    def index_filename(self):
-        return self._index_filename
-
-    @property
-    def lexicon_filename(self):
-        return self._lexicon_filename
-
-    @property
-    def terms_lexicon_filename(self):
-        return self._terms_lexicon_filename
-
-    @property
-    def doc_stat_filename(self):
-        return self._doc_stat_filename
 
     @property
     def codec(self):
@@ -184,14 +162,6 @@ class Indexer:
 
         return self._index
 
-    def export_index(self):
-        """
-            exports lexicon, term lexicon and document stats using the pickle protocol
-        """
-        FilePickler.dump(self.index.lexicon, self._lexicon_filename)
-        FilePickler.dump(self.index.doc_stats, self._doc_stat_filename)
-        FilePickler.dump(self.algo.term_lexicon, self._terms_lexicon_filename)
-
 
 if __name__ == "__main__":
     filenames = ["tiny_wikipedia.txt"]
@@ -200,11 +170,9 @@ if __name__ == "__main__":
     indexer.index(filenames)
     end = time()
     print(f"Time using Textcodec: {end - begin}")
-    os.remove("index.bin")
 
-    indexer: Indexer = Indexer(BSBI())
+    indexer: Indexer = Indexer(BSBI(DefaultFileFactory(), DefaultFilenameProvider(), BinaryCodec()))
     begin = time()
     indexer.index(filenames)
     end = time()
     print(f"Time using Binary codec: {end - begin}")
-    os.remove("index.bin")

@@ -16,8 +16,8 @@ URL = re.compile("https://en.wikipedia.org/wiki\?curid=\\d+")
 
 
 class AbstractLexer:
-    def __init__(self) -> None:
-        self._doc_stats: dict = {}
+    def __init__(self, doc_stat: dict = dict()) -> None:
+        self._doc_stats: dict = doc_stat
 
     @abstractmethod
     def lex(self, content: str) -> Document:
@@ -33,7 +33,7 @@ class AbstractLexer:
 
     @property
     def doc_stats(self):
-        return self._doc_stats
+        return dict(self._doc_stats)
 
 
 class WikiLexer(AbstractLexer):
@@ -46,7 +46,7 @@ class WikiLexer(AbstractLexer):
         self.stemmer: PorterStemmer = PorterStemmer()
 
     def update_stats(self, id: int, content: str) -> None:
-        self.doc_stats[id] = len(content)
+        self._doc_stats[id] = len(content)
 
     def word_tokenize(self, content: str) -> list[str]:
         content_ = content.lower()
